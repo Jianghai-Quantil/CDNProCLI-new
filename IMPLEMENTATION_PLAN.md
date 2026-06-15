@@ -1,6 +1,6 @@
 # CDNProCLI Rebuild: Implementation Plan
 
-> Generated: 2026-06-05  
+> Generated: 2026-06-15  
 > Scope: Rebuild the CLI tool to serve both human operators and AI agents.  
 > Out of scope: MCP server (handled in a separate project that will import `CDNProClient`).
 
@@ -74,8 +74,30 @@ CDNProCLI/
 │   │       │   ├── get.ts
 │   │       │   └── create.ts          # supports --wait, --example
 │   │       ├── hostname/
-│   │       ├── purge.ts
+│   │       │   ├── index.ts
+│   │       │   ├── list.ts
+│   │       │   ├── get.ts
+│   │       │   └── history/
+│   │       │       ├── index.ts
+│   │       │       ├── list.ts
+│   │       │       └── get.ts
+│   │       ├── purge/
+│   │       │   ├── index.ts
+│   │       │   ├── create.ts          # supports --wait, --example
+│   │       │   ├── list.ts
+│   │       │   ├── get.ts
+│   │       │   ├── summary.ts
+│   │       │   └── tokens.ts
+│   │       ├── prefetch/
+│   │       │   ├── index.ts
+│   │       │   ├── create.ts          # supports --wait
+│   │       │   ├── list.ts
+│   │       │   ├── get.ts
+│   │       │   └── tokens.ts
 │   │       └── report/
+│   │           ├── index.ts
+│   │           ├── time-series.ts     # shared builder for all time-series report commands
+│   │           └── summary.ts         # shared builder for all summary report commands
 │   ├── schema/
 │   │   ├── loader.ts                  # Loads + caches openapi.json at runtime
 │   │   ├── query.ts                   # Resolves CLI resource+operation → OpenAPI path+method
@@ -225,7 +247,6 @@ Each resource class gets return types derived from `src/types/api.ts` (see Phase
 | `cdn/js/client/*.js` (resources) | Migrate → `src/client/resources/*.ts` |
 | `cdn/js/CDNProClient.js` | Migrate → `src/client/CDNProClient.ts` |
 | `cdn/bash/build-cert-body.sh` | Logic absorbed into `cdnpro cert create` |
-| `cdn/js/tools/batchUpdateProperties.js` | Keep as-is; wrapped by `cdnpro batch run` (Phase 8) |
 | `cdn/bash/cdnapi.sh` | Keep unchanged for backward compatibility |
 
 ---
@@ -257,8 +278,8 @@ Resolved highest-priority first:
 
 1. CLI flags: `--host`, `--user`, `--secret-key`
 2. Environment variables: `CDNPRO_HOST`, `CDNPRO_USER`, `CDNPRO_SECRETKEY`
-3. Profile via env: `CDNPRO_PROFILE=staging`
-4. Profile via flag: `--profile staging`
+3. Profile via flag: `--profile staging`
+4. Profile via env: `CDNPRO_PROFILE=staging`
 5. Default profile in `~/.config/cdnpro/config.json`
 6. Error: "No credentials found. Run `cdnpro auth login`."
 
@@ -598,9 +619,9 @@ cdnpro deploy create
   --target staging|production                  Deployment environment (required)
 
   # Action flags — at least one required; all are repeatable
-  --deploy-property <id>[@<version>]           Deploy a property; omit @version to use latest validated
+  --deploy-property <id>@<version>             Deploy a property at the specified version (version required)
   --remove-property <id>                       Remove a property from the target environment
-  --deploy-cert <id>[@<version>]               Deploy a certificate
+  --deploy-cert <id>@<version>                 Deploy a certificate at the specified version (version required)
   --remove-cert <id>                           Remove a certificate from the target environment
 
   # Optional task metadata
@@ -613,7 +634,7 @@ cdnpro deploy create
   # Polling
   [--wait]                                     Poll until task completes
   [--timeout <seconds>]                        Max wait time [default: 600]
-  [--poll-interval <seconds>]                  Poll frequency [default: 5]
+  [--poll-interval <seconds>]                  Poll frequency [default: 30]
 
   # Bypass header flags
   [--skip-certificate-check]                   Send Check-Certificate: no — skip TLS cert expiry/SAN check
@@ -627,7 +648,7 @@ cdnpro deploy create
 **Deploy create implementation notes:**
 
 - At least one action flag (`--deploy-property`, `--remove-property`, `--deploy-cert`, `--remove-cert`) is required unless `--file` is used.
-- The `@version` suffix is optional. When omitted, the `version` field is excluded from the action object and the server defaults to the latest validated version.
+- The `@version` suffix is required for `--deploy-property` and `--deploy-cert`; the CLI must reject the flag with a validation error if it is omitted.
 - Multiple action flags can be combined to compose multi-action tasks in a single API call:
   ```bash
   cdnpro deploy create \
@@ -644,7 +665,48 @@ cdnpro deploy create
 - `--file` bypasses action flag parsing entirely and sends the body as-is; useful for precise multi-action bodies not easily expressible as flags.
 - `--example` prints the `"Deploy a property and a certificate to production"` example from the spec.
 
-### 4.4 Other commands
+### 4.4 `validation` commands
+
+```
+cdnpro validation list
+  [--from <date>] [--to <date>]
+  [--property <id>]
+  [--property-version <version>]
+  [--status waiting|in-progress|failed|succeeded]
+  [--search <term>]
+  [--sort-by submissionTime|finishTime]
+  [--sort-order asc|desc]
+  [--limit <n>] [--offset <n>] [--all]
+  [--report-range self-only|self+children|children-only]
+cdnpro validation get <id>
+cdnpro validation create --file <path>
+  [--wait]                                     Poll until validation completes
+  [--timeout <seconds>]                        Max wait time [default: 300]
+  [--poll-interval <seconds>]                  Poll frequency [default: 10]
+ ``` 
+
+### 4.5 `edge-hostname` commands
+
+```
+cdnpro edge-hostname list
+  [--search <term>]
+  [--has-beian]                                Filter to hostnames with Beian flag
+  [--server-groups <group,...>]                Comma-separated server group filter
+  [--sort-by creationTime|lastUpdateTime]
+  [--sort-order asc|desc]
+  [--limit <n>] [--offset <n>] [--all]
+  [--report-range self-only|self+children|children-only]
+cdnpro edge-hostname get <name>
+cdnpro edge-hostname create --file <path> [--example]
+cdnpro edge-hostname update <name> --file <path>   # PATCH — send only fields that are changing; no fields required
+  [--if-unmodified-since <date>]
+cdnpro edge-hostname replace <name> --file <path>  # PUT  — full replacement; edgeHostname and clientZones required
+  [--if-unmodified-since <date>]
+cdnpro edge-hostname delete <name>
+  [--skip-usage-check]                         Send Check-Usage: no — skip dependency safety check
+```
+
+### 4.6 `purge` and `prefetch` commands
 
 ```
 cdnpro purge create
@@ -664,6 +726,11 @@ cdnpro purge create
   # Full-body fallback
   [--file <path>]                              Full request body as JSON (- for stdin)
 
+  # Polling
+  [--wait]                                     Poll until purge completes
+  [--timeout <seconds>]                        Max wait time [default: 600]
+  [--poll-interval <seconds>]                  Poll frequency [default: 30]
+
   [--example]
 
 cdnpro purge list
@@ -679,7 +746,113 @@ cdnpro purge list
 cdnpro purge get <id>
 cdnpro purge summary [--from <date>] [--to <date>] [--target staging|production]
 cdnpro purge tokens  [--target staging|production]
+```
 
+```
+cdnpro prefetch create --file <path>
+  [--wait]                                     Poll until prefetch completes
+  [--timeout <seconds>]                        Max wait time [default: 600]
+  [--poll-interval <seconds>]                  Poll frequency [default: 30]
+
+cdnpro prefetch list
+  [--from <date>] [--to <date>]
+  [--search <term>]
+  [--sort-by submissionTime|finishTime]
+  [--sort-order asc|desc]
+  [--limit <n>] [--offset <n>] [--all]
+  [--report-range self-only|self+children|children-only]
+cdnpro prefetch get <id>
+cdnpro prefetch tokens  [--target staging|production]
+```
+### 4.7 `report` commands
+# All report commands send a POST with an optional filters body.
+# Common flags shared by most report commands:
+#   --from <date>              RFC 3339 UTC start date (required)
+#   --to <date>                RFC 3339 UTC end date (required)
+#   --type fiveminutes|hourly|daily|monthly   Granularity (required for time-series)
+#   --scheme http|https|all    Traffic type to include (default: all)
+#   --hostname <h>             Repeatable; filter by client-facing hostname
+#   --property <id>            Repeatable; filter by property ID
+#   --property-hostname <h>    Repeatable; filter by property hostname pattern
+#   --server-group <g>         Repeatable; filter by server group
+#   --file <path>              Full filters body as JSON (overrides filter flags)
+#   --report-range ...         Report-Range header (where supported)
+
+# Time-series reports (require --from, --to, --type; support --scheme unless noted)
+```
+cdnpro report edge-bandwidth        --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report edge-volume           --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report edge-upload-volume    --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report edge-requests         --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report edge-status-codes     --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report origin-volume         --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report origin-requests       --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report origin-status-codes   --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report interm-volume         --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report cpu-time              --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report origin-fast-route-requests  --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report origin-fast-route-volume    --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report l7-volume             --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report l7-bandwidth          --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
+cdnpro report edge-hostname-requests  --from <d> --to <d> --type <t> [--edge-hostname <h>]...   # no --scheme; no --report-range
+```
+
+# Summary reports (no --type; no --report-range; support --group-by)
+# --group-by values: hostnames|serverGroups|customerIds|propertyHostnames|legacyTypes (repeatable, up to 2)
+```
+cdnpro report edge-bandwidth-summary         --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report edge-volume-summary            --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report edge-requests-summary         --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report edge-status-summary           --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report origin-status-summary         --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report cpu-summary                   --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report l7-volume-summary             --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report l7-bandwidth-summary          --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
+cdnpro report edge-hostname-requests-summary  --from <d> --to <d> [--edge-hostname <h>]...
+```
+
+# Log download (no --type; filters by hostname only)
+```
+cdnpro report logs --from <d> --to <d> [--hostname <h>]... [--file <path>]
+```
+
+# Other report related commands
+```
+cdnpro log-config list
+  [--search <term>]                            Filter by hostname
+  [--limit <n>] [--offset <n>] [--all]
+  [--report-range self-only|self+children|children-only]
+cdnpro log-config get <id>
+cdnpro log-config create --file <path>
+cdnpro log-config update <id> --file <path>
+  [--if-unmodified-since <date>]
+cdnpro log-config delete <id>
+```
+```
+cdnpro log-aggregation-point list [--search <term>]
+cdnpro log-aggregation-point get <id>
+cdnpro log-aggregation-point create --file <path>
+cdnpro log-aggregation-point update <id> --file <path>
+  [--if-unmodified-since <date>]
+cdnpro log-aggregation-point delete <id>
+cdnpro log-aggregation-point summary
+```
+```
+cdnpro annotation list
+  [--from <date>] [--to <date>]
+  [--type client|configuration|operation]
+  [--search <term>]                            Filter by ID or comment text
+  [--limit <n>] [--offset <n>] [--all]
+cdnpro annotation get <id>
+cdnpro annotation create --file <path> [--example]
+cdnpro annotation update <id> --file <path>
+  [--if-unmodified-since <date>]
+cdnpro annotation delete <id>
+```
+
+### 4.8 Other commands
+
+```
 cdnpro hostname list
   [--search <term>]
   [--target all|staging|production]
@@ -695,83 +868,9 @@ cdnpro hostname history
 cdnpro hostname history get <hostname>
   [--from <date>] [--to <date>]
   [--target staging|production|all]
+```
 
-cdnpro edge-hostname list
-  [--search <term>]
-  [--has-beian]                                Filter to hostnames with Beian flag
-  [--server-groups <group,...>]                Comma-separated server group filter
-  [--sort-by creationTime|lastUpdateTime]
-  [--sort-order asc|desc]
-  [--limit <n>] [--offset <n>] [--all]
-  [--report-range self-only|self+children|children-only]
-cdnpro edge-hostname get <name>
-cdnpro edge-hostname create --file <path> [--example]
-cdnpro edge-hostname update <name> --file <path>   # PATCH — send only fields that are changing; no fields required
-  [--if-unmodified-since <date>]
-cdnpro edge-hostname replace <name> --file <path>  # PUT  — full replacement; edgeHostname and clientZones required
-  [--if-unmodified-since <date>]
-cdnpro edge-hostname delete <name>
-  [--skip-usage-check]                         Send Check-Usage: no — skip dependency safety check
-
-
-# ── Report commands ──────────────────────────────────────────────────────────
-# All report commands send a POST with an optional filters body.
-# Common flags shared by most report commands:
-#   --from <date>              RFC 3339 UTC start date (required)
-#   --to <date>                RFC 3339 UTC end date (required)
-#   --type fiveminutes|hourly|daily|monthly   Granularity (required for time-series)
-#   --scheme http|https|all    Traffic type to include (default: all)
-#   --hostname <h>             Repeatable; filter by client-facing hostname
-#   --property <id>            Repeatable; filter by property ID
-#   --property-hostname <h>    Repeatable; filter by property hostname pattern
-#   --server-group <g>         Repeatable; filter by server group
-#   --file <path>              Full filters body as JSON (overrides filter flags)
-#   --report-range ...         Report-Range header (where supported)
-
-# Time-series reports (require --from, --to, --type; support --scheme unless noted)
-cdnpro report edge-bandwidth        --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report edge-volume           --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report edge-upload-volume    --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report edge-requests         --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report edge-status-codes     --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report origin-volume         --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report origin-requests       --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report origin-status-codes   --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report interm-volume         --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report cpu-time              --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report origin-fast-route-requests  --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report origin-fast-route-volume    --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report l7-volume             --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report l7-bandwidth          --from <d> --to <d> --type <t> [filters...] [--scheme] [--report-range]
-cdnpro report edge-hostname-requests  --from <d> --to <d> --type <t> [--hostname <h>]...   # no --scheme; no --report-range
-
-# Log download (no --type; filters by hostname only)
-cdnpro report logs --from <d> --to <d> [--hostname <h>]... [--file <path>]
-
-# Summary reports (no --type; no --report-range; support --group-by)
-# --group-by values: hostnames|serverGroups|customerIds|propertyHostnames|legacyTypes (repeatable, up to 2)
-cdnpro report edge-bandwidth-summary         --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report edge-volume-summary            --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report edge-requests-summary         --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report edge-status-summary           --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report origin-status-summary         --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report cpu-summary                   --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report l7-volume-summary             --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report l7-bandwidth-summary          --from <d> --to <d> [filters...] [--scheme] [--group-by <field>]...
-cdnpro report edge-hostname-requests-summary  --from <d> --to <d> [--hostname <h>]...
-
-
-cdnpro annotation list
-  [--from <date>] [--to <date>]
-  [--type client|configuration|operation]
-  [--search <term>]                            Filter by ID or comment text
-  [--limit <n>] [--offset <n>] [--all]
-cdnpro annotation get <id>
-cdnpro annotation create --file <path> [--example]
-cdnpro annotation update <id> --file <path>
-  [--if-unmodified-since <date>]
-cdnpro annotation delete <id>
-
+```
 cdnpro webhook list
   [--limit <n>] [--offset <n>] [--all]
   [--report-range self-only|self+children|children-only]
@@ -780,7 +879,9 @@ cdnpro webhook create --file <path>
 cdnpro webhook update <id> --file <path>
   [--if-unmodified-since <date>]
 cdnpro webhook delete <id>
+```
 
+```
 cdnpro secret list
   [--search <term>]
   [--limit <n>] [--offset <n>] [--all]
@@ -789,20 +890,9 @@ cdnpro secret create --file <path>
 cdnpro secret update <id> --file <path>
   [--if-unmodified-since <date>]
 cdnpro secret delete <id>
+```
 
-cdnpro validation list
-  [--from <date>] [--to <date>]
-  [--property <id>]
-  [--property-version <version>]
-  [--status waiting|in-progress|failed|succeeded]
-  [--search <term>]
-  [--sort-by submissionTime|finishTime]
-  [--sort-order asc|desc]
-  [--limit <n>] [--offset <n>] [--all]
-  [--report-range self-only|self+children|children-only]
-cdnpro validation get <id>
-cdnpro validation create --file <path>
-
+```
 cdnpro service-quota list
   [--search <term>]
   [--status active|suspended|trial|terminated]
@@ -810,44 +900,20 @@ cdnpro service-quota list
   [--advanced-features realTimeLog|originShield]
   [--limit <n>] [--offset <n>] [--all]
   [--report-range self-only|self+children|children-only]
+cdnpro service-quota get <id>
 cdnpro service-quota update <id> --file <path>
   [--if-unmodified-since <date>]
+```  
 
-cdnpro prefetch list
-  [--from <date>] [--to <date>]
-  [--search <term>]
-  [--sort-by submissionTime|finishTime]
-  [--sort-order asc|desc]
-  [--limit <n>] [--offset <n>] [--all]
-  [--report-range self-only|self+children|children-only]
-cdnpro prefetch get <id>
-cdnpro prefetch create --file <path>
-cdnpro prefetch tokens  [--target staging|production]
-
+```
 cdnpro api-permission get <id>
 cdnpro api-permission create --file <path>
 cdnpro api-permission update <id> --file <path>
   [--if-unmodified-since <date>]
 cdnpro api-permission delete <id>
+```
 
-cdnpro log-config list
-  [--search <term>]                            Filter by hostname
-  [--limit <n>] [--offset <n>] [--all]
-  [--report-range self-only|self+children|children-only]
-cdnpro log-config get <id>
-cdnpro log-config create --file <path>
-cdnpro log-config update <id> --file <path>
-  [--if-unmodified-since <date>]
-cdnpro log-config delete <id>
-
-cdnpro log-aggregation-point list [--search <term>]
-cdnpro log-aggregation-point get <id>
-cdnpro log-aggregation-point create --file <path>
-cdnpro log-aggregation-point update <id> --file <path>
-  [--if-unmodified-since <date>]
-cdnpro log-aggregation-point delete <id>
-cdnpro log-aggregation-point summary
-
+```
 cdnpro shield list
   [--search <term>]
   [--used-in-properties]                       Filter to shields referenced by at least one property
@@ -864,10 +930,11 @@ cdnpro client-region list [--search <term>] [--isp-code <code>] [--sort-order as
 cdnpro staging-server list
 cdnpro public-ip list
 cdnpro origin-fast-route-ip list
+cdnpro ip-details lookup --file <path>
 cdnpro system-config list
 ```
 
-### 4.5 `admin` commands (`/ngadmin/` endpoints)
+### 4.9 `admin` commands (`/ngadmin/` endpoints)
 
 These operate on reseller-managed sub-accounts and require elevated API credentials. Grouped under the `admin` parent command to make the privilege boundary explicit.
 
@@ -884,7 +951,6 @@ cdnpro admin customer list
 cdnpro admin customer get <id>
 cdnpro admin customer create --file <path> [--example]
 cdnpro admin customer update <id> --file <path>
-cdnpro admin customer delete <id>
 
 cdnpro admin contact list
   [--search <term>]
@@ -913,18 +979,18 @@ cdnpro admin api-account update <id> --file <path>
 cdnpro admin api-account delete <id>
 
 cdnpro admin apicall list
-  [--from <date>] [--to <date>]
+  [--from <date>] [--to <date>]                RFC 3339 UTC (spec: startdate/enddate)
   [--method GET|POST|PATCH|PUT|DELETE]
   [--path <uri>]                               Filter by API path
   [--safe true|false]
   [--caller <name-or-id>]                      Filter by API account name or ID
-  [--for-customer <id>]                        Filter by On-Behalf-Of customer ID (spec: onbehalfof)
-  [--status <code,...>]                        Comma-separated HTTP status codes
-  [--limit <n>] [--offset <n>] [--all]
+  [--for-customer <id|none|any>]               Filter by onbehalfof: customer ID, "none" (direct/portal calls), or "any" (all child calls; resellers only)
+  [--status <code,...>]                        Comma-separated HTTP status codes or patterns (2xx, 4xx, etc.)
+  [--before <apiRequestId>]                    Cursor for pagination: return calls made before this apiRequestId
+  [--limit <n>]                                Page size [default: 100, max: 100]
+  [--all]                                      Auto-paginate using cursor (--before); implies --output jsonl
   [--report-range self-only|self+children|children-only]
 cdnpro admin apicall get <id>
-
-cdnpro admin ip-details lookup --file <path>
 ```
 
 Date formats accepted: ISO 8601 (`2026-01-01`), relative (`7d`, `24H`, `1M`).
@@ -935,7 +1001,7 @@ Date formats accepted: ISO 8601 (`2026-01-01`), relative (`7d`, `24H`, `1M`).
 
 ### 5.1 Type generation (build time)
 
-Run as part of `npm run build` via `prebuild`:
+Run as part of `npm run build` (chained before `tsc` in the `build` script):
 
 ```bash
 npx openapi-typescript openapi.json -o src/types/api.ts
@@ -988,15 +1054,14 @@ cdnpro schema <resource> <operation> [--direction request|response|both]
 
   resource    One of:
                 cdn resources:    property, property-version, cert, cert-version,
-                                  deploy, validation, purge, hostname, edge-hostname,
-                                  annotation, webhook, secret, service-quota,
-                                  prefetch, api-permission, log-config,
+                                  deploy, validation, purge, prefetch, hostname, edge-hostname,
+                                  annotation, webhook, secret, service-quota, api-permission, log-config,
                                   log-aggregation-point, shield
                 reference data:   isp, client-region, staging-server, public-ip,
-                                  origin-fast-route-ip, system-config
+                                  origin-fast-route-ip, ip-details, system-config
                 report:           report
                 admin (ngadmin):  admin-customer, admin-contact, admin-api-account,
-                                  admin-apicall, admin-ip-details
+                                  admin-apicall
   operation   One of: list, get, create, update, delete, and resource-
               specific operations (e.g. download-csr, summary, tokens, lookup,
               history-get). Note: `history-get` is the operation name for
@@ -1106,6 +1171,7 @@ const OPERATION_MAP: Record<string, { method: string; path: string }> = {
   'secret.delete':                  { method: 'delete', path: '/cdn/secrets/{secretID}' },
   // Service quotas
   'service-quota.list':             { method: 'get',    path: '/cdn/serviceQuotas' },
+  'service-quota.get':              { method: 'get',    path: '/cdn/serviceQuotas/{serviceQuotaId}' },
   'service-quota.update':           { method: 'patch',  path: '/cdn/serviceQuotas/{serviceQuotaId}' },
   // Prefetches
   'prefetch.list':                  { method: 'get',    path: '/cdn/prefetches' },
@@ -1139,13 +1205,13 @@ const OPERATION_MAP: Record<string, { method: string; path: string }> = {
   'staging-server.list':            { method: 'get',    path: '/cdn/stagingServers' },
   'public-ip.list':                 { method: 'get',    path: '/cdn/publicIpList' },
   'origin-fast-route-ip.list':      { method: 'get',    path: '/cdn/originFastRouteIpList' },
+  'ip-details.lookup':              { method: 'post',   path: '/ngadmin/ipDetails' },
   'system-config.list':             { method: 'get',    path: '/cdn/systemConfigs' },
   // Admin endpoints (/ngadmin/)
   'admin-customer.list':            { method: 'get',    path: '/ngadmin/customers' },
   'admin-customer.get':             { method: 'get',    path: '/ngadmin/customers/{id}' },
   'admin-customer.create':          { method: 'post',   path: '/ngadmin/customers' },
   'admin-customer.update':          { method: 'patch',  path: '/ngadmin/customers/{id}' },
-  'admin-customer.delete':          { method: 'delete', path: '/ngadmin/customers/{id}' },
   'admin-contact.list':             { method: 'get',    path: '/ngadmin/contacts' },
   'admin-contact.get':              { method: 'get',    path: '/ngadmin/contacts/{id}' },
   'admin-contact.create':           { method: 'post',   path: '/ngadmin/contacts' },
@@ -1158,7 +1224,6 @@ const OPERATION_MAP: Record<string, { method: string; path: string }> = {
   'admin-api-account.delete':       { method: 'delete', path: '/ngadmin/apiAccounts/{id}' },
   'admin-apicall.list':             { method: 'get',    path: '/ngadmin/apicalls' },
   'admin-apicall.get':              { method: 'get',    path: '/ngadmin/apicalls/{id}' },
-  'admin-ip-details.lookup':        { method: 'post',   path: '/ngadmin/ipDetails' },
 };
 ```
 
@@ -1606,8 +1671,8 @@ $ cdnpro property create --example
   "name": "<name>",
   "version": {
     "description": "<description>",
-    "_optional_edgeLogic": "<edgeLogic>",
-    "_optional_origins": [
+    "edgeLogic": "<edgeLogic>",
+    "origins": [
       {
         "hostname": "<hostname>",
         "_optional_port": 80,
@@ -1666,7 +1731,7 @@ $ echo '{"version":{"description":"v1"}}' | cdnpro property create --file - --ou
 {
   "error": {
     "code": "VALIDATION",
-    "message": "Request body failed schema validation (2 errors)",
+    "message": "Request body failed schema validation (1 error)",
     "validationErrors": [
       {
         "path": "",
@@ -1696,7 +1761,7 @@ $ echo '{"version":{"description":"v1"}}' | cdnpro property create --file - --ou
 }
 ```
 
-Exit code is `4` (VALIDATION), which is distinct from API errors (codes 2–3, 5–7), so an agent can branch its error handling without parsing the JSON body.
+Exit code is `4` (VALIDATION), which is distinct from API errors (codes 2–3, 5–10), so an agent can branch its error handling without parsing the JSON body.
 
 #### Implementation in the command layer
 
@@ -1752,13 +1817,13 @@ async function run(filePath: string, opts: CreateOptions) {
 // src/cli/wait.ts
 
 export interface WaitOptions {
-  timeout: number;       // seconds [default: 600]
-  pollInterval: number;  // seconds [default: 5]
+  timeout: number;       // seconds; default varies by task type: 600 (deploy/purge/prefetch), 300 (validation)
+  pollInterval: number;  // seconds; default varies by task type: 30 (deploy/purge/prefetch), 10 (validation)
   outputFormat?: OutputFormat;
 }
 
 export async function waitForTask(
-  client: CDNProClient,
+  getTask: (id: string) => Promise<unknown>,
   taskId: string,
   opts: WaitOptions,
 ): Promise<unknown> {
@@ -1770,7 +1835,7 @@ export async function waitForTask(
   const spinner = isInteractive ? ora(`Waiting for task ${taskId}`).start() : null;
 
   while (Date.now() < deadline) {
-    const task = await client.deploymentTasks.get(taskId) as Record<string, unknown>;
+    const task = await getTask(taskId) as Record<string, unknown>;
     const pct  = (task.progressPercent as number | undefined) ?? 0;
     const status = task.status as string;
 
@@ -1781,7 +1846,7 @@ export async function waitForTask(
       process.stdout.write(JSON.stringify({ event: 'poll', taskId, status, progressPercent: pct }) + '\n');
     }
 
-    if (status === 'succeeded' || status === 'completed') {
+    if (status === 'succeeded') {
       spinner?.succeed(`Task ${taskId} completed`);
       if (!isInteractive) {
         process.stdout.write(JSON.stringify({ event: 'done', taskId, data: task }) + '\n');
@@ -1791,7 +1856,7 @@ export async function waitForTask(
 
     if (status === 'failed') {
       spinner?.fail(`Task ${taskId} failed`);
-      throw new CliError('ERROR', `Deployment failed: ${(task.failReason as string | undefined) ?? 'unknown reason'}`);
+      throw new CliError('ERROR', `Task failed: ${(task.failReason as string | undefined) ?? 'unknown reason'}`);
     }
 
     await new Promise(r => setTimeout(r, opts.pollInterval * 1000));
@@ -1801,10 +1866,12 @@ export async function waitForTask(
 }
 ```
 
+Each command passes its own getter. For example, `deploy create` passes `(id) => client.deploymentTasks.get(id)`, `validation create` passes `(id) => client.validations.get(id)`, `purge create` passes `(id) => client.purges.get(id)`, and `prefetch create` passes `(id) => client.prefetches.get(id)`.
+
 **Human usage:**
 
 ```
-$ cdnpro deploy create --property abc123 --target production --wait
+$ cdnpro deploy create --deploy-property abc123@<version> --target production --wait
 ⠸ Task t-xyz: distributing 60%
 ✓ Task t-xyz completed
 ```
@@ -1812,7 +1879,7 @@ $ cdnpro deploy create --property abc123 --target production --wait
 **AI agent / scripted usage:**
 
 ```
-$ cdnpro deploy create --property abc123 --target production --wait --output json
+$ cdnpro deploy create --deploy-property abc123@<version> --target production --wait --output json
 {"event":"poll","taskId":"t-xyz","status":"distributing","progressPercent":40}
 {"event":"poll","taskId":"t-xyz","status":"distributing","progressPercent":80}
 {"event":"done","taskId":"t-xyz","data":{"status":"succeeded","completedAt":"2026-06-05T10:00:00Z"}}
@@ -1850,39 +1917,29 @@ Dynamic completions for property IDs, cert IDs, etc. are intentionally omitted �
 
 ---
 
-## Phase 8 — Batch Tool Migration
-
-The existing `cdn/js/tools/batchUpdateProperties.js` implements a sound 4-step workflow. Preserve the logic; wrap it under the unified CLI:
-
-```
-cdnpro batch run <task-file.js> find
-cdnpro batch run <task-file.js> check
-cdnpro batch run <task-file.js> new     [--dry-run]
-cdnpro batch run <task-file.js> deploy  [--wait]
-```
-
-The task-file format is unchanged — existing task scripts continue to work without modification.
-
----
-
 ## Implementation Order
 
 | Phase | Deliverable | Dependency |
 |---|---|---|
-| 1 | TypeScript setup; compile existing code unchanged | none |
+| 1 | TypeScript setup; migrate client library | none |
 | 2 | Config system; `auth` commands | Phase 1 |
 | 3 | Output formatter; `errors.ts` | Phase 1 |
 | 5.1 | `openapi-typescript` type generation | Phase 1 |
-| 4a | `property` and `property version` commands | Phases 2, 3 |
-| 4b | `deploy` commands + `--wait` (Phase 6) | Phases 2, 3 |
-| 4c | `cert`, `purge`, `hostname` commands | Phases 2, 3 |
-| 4d | `report` commands | Phases 2, 3 |
+| 6 | `--wait` async poller (`wait.ts`) | Phases 2, 3 |
+| 4.1 | `property` and `property version` commands | Phases 2, 3 |
+| 4.2 | `cert` commands | Phases 2, 3 |
+| 4.3 | `deploy` commands | Phases 2, 3, 6 |
+| 4.4 | `validation` commands | Phases 2, 3, 6 |
+| 4.5 | `edge-hostname` commands | Phases 2, 3 |
+| 4.6 | `purge` and `prefetch` commands | Phases 2, 3, 6 |
+| 4.7 | `report` commands | Phases 2, 3 |
+| 4.8 | `hostname`, `webhook`, `secret`, `service-quota`, `api-permission`, `shield`, reference commands | Phases 2, 3 |
+| 4.9 | `admin` commands | Phases 2, 3 |
 | 5.2 | Runtime body validation via `ajv` | Phase 5.1 |
 | 5.3 | `cdnpro schema` command | Phase 5.1 |
 | 5.4 | `--example` flag | Phase 5.1 |
 | 5.5 | Schema field in validation error JSON | Phases 5.2, 5.3 |
 | 7 | Shell completion | Phase 4 complete |
-| 8 | Batch tool migration | Phase 4 complete |
 
 ---
 

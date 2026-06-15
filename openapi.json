@@ -24169,10 +24169,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "count": {
-                      "type": "integer",
-                      "description": "Total number of available API calls. This may be larger than the number actually returned.",
-                      "minimum": 0
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "Indicates whether there are more API calls available beyond the current page of results."
                     },
                     "apiCalls": {
                       "type": "array",
@@ -24223,17 +24222,66 @@
                           "responseCode"
                         ]
                       }
+                    },
+                    "filters": {
+                      "type": "object",
+                      "description": "Echoes the query parameters used in the request.",
+                      "properties": {
+                        "method": {
+                          "type": "string",
+                          "description": "The HTTP method filter applied to the request."
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "The path filter applied to the request."
+                        },
+                        "safe": {
+                          "type": "string",
+                          "description": "The safe filter applied to the request."
+                        },
+                        "caller": {
+                          "type": "string",
+                          "description": "The API account name or ID filter applied to the request."
+                        },
+                        "onbehalfof": {
+                          "type": "string",
+                          "description": "The on-behalf-of filter applied to the request."
+                        },
+                        "status": {
+                          "type": "string",
+                          "description": "The HTTP response status code filter applied to the request."
+                        },
+                        "startdate": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "The start of the time period filter applied to the request."
+                        },
+                        "enddate": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "The end of the time period filter applied to the request."
+                        },
+                        "before": {
+                          "type": "string",
+                          "description": "The cursor ID used to retrieve API calls made before a specific API call."
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "The maximum number of API calls to return."
+                        }
+                      }
                     }
                   },
                   "required": [
-                    "count",
-                    "apiCalls"
+                    "hasMore",
+                    "apiCalls",
+                    "filters"
                   ]
                 },
                 "examples": {
                   "example-1": {
                     "value": {
-                      "count": 570,
+                      "hasMore": true,
                       "apiCalls": [
                         {
                           "apiRequestId": "2d99b9d962847b3f",
@@ -24279,7 +24327,12 @@
                           "apiName": "myapiname",
                           "responseCode": 200
                         }
-                      ]
+                      ],
+                      "filters": {
+                        "limit": "5",
+                        "startdate": "2020-04-24T19:09:15Z",
+                        "enddate": "2020-04-24T21:09:15Z"
+                      }
                     }
                   }
                 }
@@ -24305,7 +24358,7 @@
                   "Invalid list limit": {
                     "value": {
                       "code": "InvalidListLimit",
-                      "message": "The value of limit should be between 1 and 200, inclusive."
+                      "message": "The value of limit should be between 1 and 100, inclusive."
                     }
                   },
                   "Invalid URL": {
@@ -24333,7 +24386,7 @@
             "source": "./adminapi.sh GET /apicalls -p\n"
           }
         ],
-        "description": "Retrieve a list of recent API calls that have been made by you or on your behalf. API calls triggered by portal users are included as well. Query parameters allow you to filter results. By default, API calls made in the last 30 days will be returned if the startdate and enddate parameters are unspecified.",
+        "description": "Retrieve a list of recent API calls that have been made by you or on your behalf. API calls triggered by portal users are included as well. Query parameters allow you to filter results. By default, API calls made in the last 24 hours will be returned if the startdate and enddate parameters are unspecified.",
         "parameters": [
           {
             "schema": {
@@ -24422,18 +24475,17 @@
           },
           {
             "schema": {
-              "type": "integer",
-              "minimum": 0
+              "type": "string"
             },
             "in": "query",
-            "name": "offset",
-            "description": "Indicates the first item to return. The default is \"0\"."
+            "name": "before",
+            "description": "Return API calls made before the API call with this ID. Use the <code>apiRequestId</code> from a previous response to paginate through results."
           },
           {
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 200,
+              "maximum": 100,
               "default": 100
             },
             "in": "query",
