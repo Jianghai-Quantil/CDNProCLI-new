@@ -1,0 +1,60 @@
+import { Command } from 'commander';
+import { resolveCredentials, GlobalOptions } from '../../config';
+import { CDNProClient } from '../../../client/CDNProClient';
+import { print, OutputFormat } from '../../output';
+import { handleError } from '../../errors';
+import { readBodyFile, emitValidationError } from '../../util';
+import { getExampleBody } from '../../../schema/synthesize';
+import { validateBody } from '../../../schema/validate';
+
+interface ReplaceOpts {
+  file?: string;
+  example?: boolean;
+  ifUnmodifiedSince?: string;
+}
+
+export function registerEdgeHostnameReplaceCommand(parent: Command): void {
+  parent
+    .command('replace <name>')
+    .description('Fully replace an edge hostname (PUT)')
+    .option('--file <path>', 'Request body as JSON (- for stdin)')
+    .option('--example', 'Print an example request body and exit')
+    .option('--if-unmodified-since <date>', 'Optimistic concurrency guard (If-Unmodified-Since header)')
+    .action(async (name: string, opts: ReplaceOpts, cmd: Command) => {
+      try {
+        if (opts.example) {
+          const example = getExampleBody('/cdn/edgeHostnames/{edgeHostname}', 'put');
+          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+          return;
+        }
+
+        if (!opts.file) {
+          process.stderr.write("Error: required option '--file <path>' not specified\n");
+          process.exit(1);
+        }
+
+        const globals = cmd.optsWithGlobals<GlobalOptions>();
+        const serverInfo = await resolveCredentials(globals);
+        const client = new CDNProClient(serverInfo);
+        const fmt = globals.output as OutputFormat | undefined;
+
+        const body = readBodyFile(opts.file);
+        const validation = validateBody('/cdn/edgeHostnames/{edgeHostname}', 'put', body);
+        if (!validation.valid) emitValidationError(validation, 'cdnpro edge-hostname replace --example', globals.output);
+
+        const headers: Record<string, string> = {};
+        if (opts.ifUnmodifiedSince) headers['If-Unmodified-Since'] = opts.ifUnmodifiedSince;
+
+        const reqOptions = {
+          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+          ...(globals.verbose ? { verbose: globals.verbose } : {}),
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        };
+
+        const data = await client.edgeHostnames.replace(name, body, reqOptions);
+        print(data, fmt);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+}

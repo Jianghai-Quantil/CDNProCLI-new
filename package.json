@@ -1,0 +1,37 @@
+{
+  "name": "cdnpro-cli",
+  "version": "2.0.0",
+  "description": "CDN Pro CLI — human and AI-agent friendly interface to the CDN Pro API",
+  "bin": {
+    "cdnpro": "./dist/cli/main.js"
+  },
+  "main": "./dist/client/CDNProClient.js",
+  "types": "./dist/client/CDNProClient.d.ts",
+  "scripts": {
+    "build": "npm run generate:types && tsc",
+    "generate:types": "openapi-typescript openapi.json -o src/types/api.ts",
+    "dev": "tsx src/cli/main.ts",
+    "test": "node --test dist/test/**/*.js"
+  },
+  "dependencies": {
+    "ajv": "^8.17.0",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "commander": "^12.0.0",
+    "conf": "^9.0.0",
+    "diff": "^8.0.3",
+    "keytar": "^7.9.0",
+    "node-forge": "^1.4.0",
+    "ora": "^5.4.1",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/diff": "^5.0.9",
+    "@types/node": "^20.0.0",
+    "@types/node-forge": "^1.3.0",
+    "@types/xml2js": "^0.4.14",
+    "openapi-typescript": "^7.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

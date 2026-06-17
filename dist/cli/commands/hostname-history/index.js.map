@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../src/cli/commands/hostname-history/index.ts"],"names":[],"mappings":";;AAIA,0EAOC;AAVD,iCAA4D;AAC5D,+BAA0D;AAE1D,SAAgB,+BAA+B,CAAC,MAAe;IAC7D,MAAM,GAAG,GAAG,MAAM;SACf,OAAO,CAAC,kBAAkB,CAAC;SAC3B,WAAW,CAAC,kCAAkC,CAAC,CAAC;IAEnD,IAAA,yCAAkC,EAAC,GAAG,CAAC,CAAC;IACxC,IAAA,uCAAiC,EAAC,GAAG,CAAC,CAAC;AACzC,CAAC"}

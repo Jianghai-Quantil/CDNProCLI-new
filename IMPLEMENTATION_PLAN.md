@@ -41,6 +41,7 @@ CDNProCLI/
 │   ├── cli/
 │   │   ├── main.ts                    # Entry point / root command
 │   │   ├── config.ts                  # Profile & credential management
+│   │   ├── keychain.ts                # OS keychain wrapper (keytar)
 │   │   ├── output.ts                  # Formatter (table / json / jsonl)
 │   │   ├── errors.ts                  # CliError class + exit codes
 │   │   ├── wait.ts                    # Async operation poller
@@ -76,11 +77,11 @@ CDNProCLI/
 │   │       ├── hostname/
 │   │       │   ├── index.ts
 │   │       │   ├── list.ts
-│   │       │   ├── get.ts
-│   │       │   └── history/
-│   │       │       ├── index.ts
-│   │       │       ├── list.ts
-│   │       │       └── get.ts
+│   │       │   └── get.ts
+│   │       ├── hostname-history/
+│   │       │   ├── index.ts
+│   │       │   ├── list.ts
+│   │       │   └── get.ts
 │   │       ├── purge/
 │   │       │   ├── index.ts
 │   │       │   ├── create.ts          # supports --wait, --example
@@ -139,6 +140,7 @@ CDNProCLI/
     "commander": "^12.0.0",
     "conf": "^9.0.0",
     "diff": "^8.0.3",
+    "keytar": "^7.9.0",
     "node-forge": "^1.4.0",
     "ora": "^5.4.1",
     "xml2js": "^0.6.2"
@@ -255,11 +257,21 @@ Each resource class gets return types derived from `src/types/api.ts` (see Phase
 
 ### 2.1 Config file structure
 
-Stored at `~/.config/cdnpro/config.json`, managed by `conf`:
+Secret keys are stored in the OS keychain via `keytar` (macOS Keychain, Windows Credential Manager, Linux Secret Service). Non-sensitive fields (host, user) are stored in the conf JSON file. If the keychain is unavailable (headless server, CI), a one-time warning is shown and the secret falls back to the conf file.
+
+The `keychain.ts` module wraps `keytar` with graceful fallback (lazy-loads the native addon so failures degrade rather than crash at startup). Keychain namespace: service `cdnpro`, account `cdnpro:<profileName>`.
 
 ```typescript
 // src/cli/config.ts
 
+/** Stored in conf JSON — never contains the secret key. */
+interface StoredProfile {
+  host: string;
+  user: string;
+  secretKey?: string;  // only present as fallback when keychain is unavailable
+}
+
+/** Fully-resolved in-memory shape — never persisted. */
 interface Profile {
   host: string;
   user: string;
@@ -268,7 +280,7 @@ interface Profile {
 
 interface CdnProConfig {
   defaultProfile: string;
-  profiles: Record<string, Profile>;
+  profiles: Record<string, StoredProfile>;
 }
 ```
 
@@ -284,7 +296,7 @@ Resolved highest-priority first:
 6. Error: "No credentials found. Run `cdnpro auth login`."
 
 ```typescript
-export function resolveCredentials(globalOpts: GlobalOptions): ServerInfo {
+export async function resolveCredentials(globalOpts: GlobalOptions): Promise<ServerInfo> {
   if (globalOpts.host && globalOpts.user && globalOpts.secretKey)
     return { host: globalOpts.host, user: globalOpts.user, secretKey: globalOpts.secretKey };
 
@@ -293,7 +305,11 @@ export function resolveCredentials(globalOpts: GlobalOptions): ServerInfo {
 
   const profileName = globalOpts.profile ?? process.env.CDNPRO_PROFILE ?? config.get('defaultProfile');
   const profile = config.get(`profiles.${profileName}`);
-  if (profile) return profile;
+  if (profile) {
+    const secretKey = (await getSecret(profileName)) ?? profile.secretKey;
+    if (!secretKey) throw new CliError('CONFIG_ERROR', `Keychain entry missing for profile "${profileName}". Run \`cdnpro auth login -p ${profileName}\` to re-save credentials.`);
+    return { host: profile.host, user: profile.user, secretKey };
+  }
 
   throw new CliError('CONFIG_ERROR', 'No credentials found. Run `cdnpro auth login`.');
 }
@@ -302,9 +318,9 @@ export function resolveCredentials(globalOpts: GlobalOptions): ServerInfo {
 ### 2.3 `auth` commands
 
 ```
-cdnpro auth login [--profile <name>]    Interactive prompt: host, user, secretKey (hidden input)
-cdnpro auth logout [--profile <name>]   Remove profile from config
-cdnpro auth list                         List all profiles; mask secretKey as ****
+cdnpro auth login [--profile <name>]    Interactive prompt: host, user, secretKey (hidden input). Secret stored in OS keychain; host/user in config file.
+cdnpro auth logout [--profile <name>]   Remove profile from config and keychain
+cdnpro auth list                         List all profiles; masks secretKey as **** and shows storage location (keychain / config file)
 cdnpro auth switch <profile>             Set default profile
 cdnpro auth status                       Test credentials with a lightweight GET /cdn/properties?limit=1
 ```
@@ -479,17 +495,17 @@ cdnpro property update <id>
 cdnpro property delete <id>
   [--confirm]                      Skip confirmation prompt
 
-cdnpro property version list <id>
+cdnpro property-version list <id>
   [--search <term>]                            Match against version description
   [--sort-by version|lastUpdateTime]
   [--sort-order asc|desc]
   [--limit <n>] [--offset <n>] [--all]
-cdnpro property version get <id> <version>
-cdnpro property version create <id> --file <path> [--example]
-cdnpro property version update <id> <version> --file <path>
+cdnpro property-version get <id> <version>
+cdnpro property-version create <id> --file <path> [--example]
+cdnpro property-version update <id> <version> --file <path>
   [--if-unmodified-since <date>]   If-Unmodified-Since header (RFC 1123)
   [--example]
-cdnpro property version delete <id> <version>
+cdnpro property-version delete <id> <version>
 ```
 
 `--file -` reads from stdin, enabling pipe chaining:
@@ -587,7 +603,7 @@ cdnpro cert-version delete <id> <version>
 
 **Cert create/update implementation notes:**
 
-- Exactly one of `--cert`/`--key` (upload), `--self-signed` (server-generated), `--ca-only`, or `--file` (raw body) must be provided; mixing mode flags is a validation error (exit code 1).
+- Exactly one of `--cert`/`--key` (upload), `--self-signed` (server-generated), `--ca-only`, or `--file` (raw body) must be provided; mixing mode flags is a validation error (exit code 4).
 - **Upload mode** (`--cert` + `--key`): reads PEM files from disk, encrypts the private key with the server public key using `node-forge` (logic migrated from `build-cert-body.sh`), then builds `{ newVersion: { certificate, privateKey, chainCert } }`.
 - **Self-signed mode** (`--self-signed`): builds `{ newVersion: { privateKey: "RSA2048"|"ECC256", certificate: "Generate", identificationInfo: { commonName, subjectAlternativeNames, ... }, comments } }`. `--san` is repeatable; values accumulate into the `subjectAlternativeNames` array. `--common-name` is required.
 - **CA-only mode** (`--ca-only`): for `cert create`, sets top-level `caOnly: true` and `newVersion.chainCert` to the PEM-encoded CA chain. For `cert update`, sets only `newVersion.chainCert` (the existing `caOnly` flag on the record is preserved).
@@ -859,13 +875,13 @@ cdnpro hostname list
   [--limit <n>] [--offset <n>] [--all]
   [--report-range self-only|self+children|children-only]
 cdnpro hostname get <hostname>
-cdnpro hostname history
+cdnpro hostname-history list
   [--from <date>] [--to <date>]
   [--search <term>]                            Filter by hostname prefix
   [--target staging|production|all]
   [--limit <n>] [--offset <n>] [--all]
   [--report-range self-only|self+children|children-only]
-cdnpro hostname history get <hostname>
+cdnpro hostname-history get <hostname>
   [--from <date>] [--to <date>]
   [--target staging|production|all]
 ```
@@ -931,7 +947,7 @@ cdnpro staging-server list
 cdnpro public-ip list
 cdnpro origin-fast-route-ip list
 cdnpro ip-details lookup --file <path>
-cdnpro system-config list
+cdnpro system-config get
 ```
 
 ### 4.9 `admin` commands (`/ngadmin/` endpoints)
@@ -1054,19 +1070,18 @@ cdnpro schema <resource> <operation> [--direction request|response|both]
 
   resource    One of:
                 cdn resources:    property, property-version, cert, cert-version,
-                                  deploy, validation, purge, prefetch, hostname, edge-hostname,
-                                  annotation, webhook, secret, service-quota, api-permission, log-config,
-                                  log-aggregation-point, shield
+                                  deploy, validation, purge, prefetch, hostname, hostname-history,
+                                  edge-hostname, annotation, webhook, secret, service-quota,
+                                  api-permission, log-config, log-aggregation-point, shield
                 reference data:   isp, client-region, staging-server, public-ip,
                                   origin-fast-route-ip, ip-details, system-config
                 report:           report
                 admin (ngadmin):  admin-customer, admin-contact, admin-api-account,
                                   admin-apicall
   operation   One of: list, get, create, update, delete, and resource-
-              specific operations (e.g. download-csr, summary, tokens, lookup,
-              history-get). Note: `history-get` is the operation name for
-              `cdnpro hostname history get <hostname>` — use
-              `cdnpro schema hostname history-get` to inspect it.
+              specific operations (e.g. download-csr, summary, tokens, lookup).
+              Use `cdnpro schema hostname-history list` or `cdnpro schema hostname-history get`
+              to inspect the history endpoints.
   --direction both      Show both request and response in one call [default]
               request   Show only the request interface (body schema + query params + headers)
               response  Show only the successful response body schema
@@ -1116,8 +1131,9 @@ const OPERATION_MAP: Record<string, { method: string; path: string }> = {
   // Hostnames
   'hostname.list':                  { method: 'get',    path: '/cdn/hostnames' },
   'hostname.get':                   { method: 'get',    path: '/cdn/hostnames/{hostname}' },
-  'hostname.history':               { method: 'get',    path: '/cdn/hostnames/historical' },
-  'hostname.history-get':           { method: 'get',    path: '/cdn/hostnames/historical/{hostname}' },
+  // Hostname history
+  'hostname-history.list':          { method: 'get',    path: '/cdn/hostnames/historical' },
+  'hostname-history.get':           { method: 'get',    path: '/cdn/hostnames/historical/{hostname}' },
   // Purges
   'purge.create':                   { method: 'post',   path: '/cdn/purges' },
   'purge.list':                     { method: 'get',    path: '/cdn/purges' },
@@ -1206,7 +1222,7 @@ const OPERATION_MAP: Record<string, { method: string; path: string }> = {
   'public-ip.list':                 { method: 'get',    path: '/cdn/publicIpList' },
   'origin-fast-route-ip.list':      { method: 'get',    path: '/cdn/originFastRouteIpList' },
   'ip-details.lookup':              { method: 'post',   path: '/ngadmin/ipDetails' },
-  'system-config.list':             { method: 'get',    path: '/cdn/systemConfigs' },
+  'system-config.get':             { method: 'get',    path: '/cdn/systemConfigs' },
   // Admin endpoints (/ngadmin/)
   'admin-customer.list':            { method: 'get',    path: '/ngadmin/customers' },
   'admin-customer.get':             { method: 'get',    path: '/ngadmin/customers/{id}' },
@@ -1598,13 +1614,20 @@ export function getExampleBody(openapiPath: string, method: string): unknown {
  * - null: use null
  * - $ref: resolve against the spec's `components.schemas` and recurse
  */
-function synthesizeFromSchema(schema: Record<string, unknown>, key = 'value'): unknown {
+function synthesizeFromSchema(
+  schema: Record<string, unknown>,
+  key = 'value',
+  _seen = new Set<string>(),
+): unknown {
   if (!schema || typeof schema !== 'object') return null;
 
-  // Resolve $ref
+  // Resolve $ref — guard against circular references
   if (schema.$ref) {
-    const resolved = resolveRef(schema.$ref as string);
-    return resolved ? synthesizeFromSchema(resolved, key) : null;
+    const ref = schema.$ref as string;
+    if (_seen.has(ref)) return `<recursive:${ref}>`;
+    _seen.add(ref);
+    const resolved = resolveRef(ref);
+    return resolved ? synthesizeFromSchema(resolved, key, _seen) : null;
   }
 
   const type = schema.type as string | undefined;
@@ -1615,12 +1638,12 @@ function synthesizeFromSchema(schema: Record<string, unknown>, key = 'value'): u
     const result: Record<string, unknown> = {};
     // Always include required fields
     for (const reqKey of required) {
-      result[reqKey] = synthesizeFromSchema(props[reqKey] as Record<string, unknown> ?? {}, reqKey);
+      result[reqKey] = synthesizeFromSchema(props[reqKey] as Record<string, unknown> ?? {}, reqKey, _seen);
     }
     // Include non-required fields marked with a comment so the agent knows they are optional
     for (const [optKey, optSchema] of Object.entries(props)) {
       if (!required.includes(optKey)) {
-        result[`_optional_${optKey}`] = synthesizeFromSchema(optSchema as Record<string, unknown>, optKey);
+        result[`_optional_${optKey}`] = synthesizeFromSchema(optSchema as Record<string, unknown>, optKey, _seen);
       }
     }
     return result;
@@ -1628,7 +1651,7 @@ function synthesizeFromSchema(schema: Record<string, unknown>, key = 'value'): u
 
   if (type === 'array') {
     const items = schema.items as Record<string, unknown> | undefined;
-    return [items ? synthesizeFromSchema(items, key) : null];
+    return [items ? synthesizeFromSchema(items, key, _seen) : null];
   }
 
   if (type === 'string') {
@@ -1887,6 +1910,67 @@ $ cdnpro deploy create --deploy-property abc123@<version> --target production --
 
 ---
 
+## Phase 8 — Self-Update (`cdnpro update`)
+
+### 8.1 `src/cli/updater.ts`
+
+Shared module used by both the `update` command and the passive startup notifier.
+
+**Registry fetch** — uses the built-in `https` module to call `https://registry.npmjs.org/cdnpro-cli/latest`. No external dependency. 8-second timeout; network failures are silently swallowed in notifier mode.
+
+**Version comparison** — inline semver comparison (major/minor/patch). No `semver` package.
+
+**Install-scope detection** — returns `{ scope, projectRoot?, packageManager? }`:
+
+| Scope | Detection logic |
+|---|---|
+| `npx` | `process.argv[1]` contains `_npx` or `npx-cache` |
+| `global` | `process.argv[1]` starts with the path returned by `npm root -g` |
+| `local` | Walk up from `process.cwd()` to find the nearest `package.json` that lists `cdnpro-cli` as a dependency |
+
+For local scope, the package manager is inferred from the lock file present at the project root (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, otherwise npm).
+
+**Update command builder** — maps scope + package manager to the correct install invocation:
+
+| Scope | Package manager | Command |
+|---|---|---|
+| global | npm | `npm install -g cdnpro-cli@latest` |
+| local | npm | `npm install cdnpro-cli@latest` (in project root) |
+| local | yarn | `yarn add cdnpro-cli@latest` (in project root) |
+| local | pnpm | `pnpm add cdnpro-cli@latest` (in project root) |
+| npx | — | no-op; print message and exit |
+
+**Update runner** — spawns with `stdio: 'inherit'` so live npm output is streamed to the terminal. Uses `shell: true` on Windows to handle `.cmd` shims.
+
+**Startup notifier** — `scheduleUpdateCheck()` fires a background registry fetch (non-blocking, not awaited). Throttled to once per 24 hours; the last-check timestamp and latest known version are persisted in a separate `conf` store (`update-notifier.json`, same directory as `config.json`). Skips entirely when `process.stdout.isTTY` is false (piped / agent mode). `printUpdateNotice()` writes a single line to **stderr** after the command completes, so stdout remains clean for pipelines.
+
+### 8.2 `cdnpro update` command
+
+```
+cdnpro update
+  [--check]   Check for an update and exit without installing.
+              Exit code 0 = already up to date; exit code 1 = update available.
+              Useful in CI to assert a minimum version.
+  [-y/--yes]  Skip the confirmation prompt.
+```
+
+Execution flow:
+
+1. Detect install scope — exit cleanly with an explanatory message if invoked via `npx`.
+2. Fetch latest version from the npm registry; print a spinner-style progress message.
+3. If already on the latest version, print confirmation and exit 0.
+4. Print the version diff (`2.0.0 → 2.1.0`) and the exact command that will run.
+5. If `--check`, exit 1 (update available).
+6. Unless `--yes`, prompt `Proceed with update? [y/N]`.
+7. Spawn the update command with `stdio: 'inherit'`; forward its exit code.
+
+### 8.3 Wiring in `main.ts`
+
+- `scheduleUpdateCheck()` called once at module load (before `program.parseAsync`).
+- `postAction` hook on the root command calls `printUpdateNotice()` after every command finishes.
+
+---
+
 ## Phase 7 — Shell Completion
 
 Commander.js does not auto-generate completion scripts; write them explicitly.
@@ -1926,7 +2010,7 @@ Dynamic completions for property IDs, cert IDs, etc. are intentionally omitted �
 | 3 | Output formatter; `errors.ts` | Phase 1 |
 | 5.1 | `openapi-typescript` type generation | Phase 1 |
 | 6 | `--wait` async poller (`wait.ts`) | Phases 2, 3 |
-| 4.1 | `property` and `property version` commands | Phases 2, 3 |
+| 4.1 | `property` and `property-version` commands | Phases 2, 3 |
 | 4.2 | `cert` commands | Phases 2, 3 |
 | 4.3 | `deploy` commands | Phases 2, 3, 6 |
 | 4.4 | `validation` commands | Phases 2, 3, 6 |
@@ -1940,6 +2024,7 @@ Dynamic completions for property IDs, cert IDs, etc. are intentionally omitted �
 | 5.4 | `--example` flag | Phase 5.1 |
 | 5.5 | Schema field in validation error JSON | Phases 5.2, 5.3 |
 | 7 | Shell completion | Phase 4 complete |
+| 8 | `cdnpro update` command + startup notifier | Phase 1 |
 
 ---
 

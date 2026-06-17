@@ -1,0 +1,95 @@
+import { Command } from 'commander';
+import { resolveCredentials, GlobalOptions } from '../../config';
+import { CDNProClient } from '../../../client/CDNProClient';
+import { printJson, printTable, OutputFormat } from '../../output';
+import { handleError } from '../../errors';
+import { CliError } from '../../errors';
+import { readBodyFile, emitValidationError } from '../../util';
+import { waitForTask } from '../../wait';
+import { getExampleBody } from '../../../schema/synthesize';
+import { validateBody } from '../../../schema/validate';
+
+interface CreateOpts {
+  file?: string;
+  example?: boolean;
+  wait?: boolean;
+  timeout?: string;
+  pollInterval?: string;
+}
+
+export function registerValidationCreateCommand(parent: Command): void {
+  parent
+    .command('create')
+    .description('Create a validation task from a JSON body file')
+    .option('--file <path>', 'Request body as JSON (- for stdin)')
+    .option('--example', 'Print an example request body and exit')
+    .option('--wait', 'Poll until validation completes')
+    .option('--timeout <seconds>', 'Max wait time [default: 300]')
+    .option('--poll-interval <seconds>', 'Poll frequency [default: 10]')
+    .action(async (opts: CreateOpts, cmd: Command) => {
+      try {
+        if (opts.example) {
+          const example = getExampleBody('/cdn/validations', 'post');
+          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+          return;
+        }
+
+        if (!opts.file) {
+          process.stderr.write("Error: required option '--file <path>' not specified\n");
+          process.exit(1);
+        }
+
+        const globals = cmd.optsWithGlobals<GlobalOptions>();
+        const serverInfo = await resolveCredentials(globals);
+        const client = new CDNProClient(serverInfo);
+        const fmt = globals.output as OutputFormat | undefined;
+        const body = readBodyFile(opts.file);
+        const validation = validateBody('/cdn/validations', 'post', body);
+        if (!validation.valid) emitValidationError(validation, 'cdnpro validation create --example', globals.output);
+
+        const reqOptions = {
+          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+          ...(globals.verbose ? { verbose: globals.verbose } : {}),
+        };
+
+        const data = await client.validations.create(body, reqOptions) as Record<string, unknown>;
+
+        if (opts.wait) {
+          const taskId = (data['id'] ?? data['taskId']) as string | undefined;
+          if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
+
+          const timeout = parseInt(opts.timeout ?? '300', 10);
+          if (isNaN(timeout) || timeout < 1) {
+            throw new CliError('VALIDATION', `--timeout must be a positive integer, got: ${opts.timeout}`);
+          }
+          const pollInterval = parseInt(opts.pollInterval ?? '10', 10);
+          if (isNaN(pollInterval) || pollInterval < 1) {
+            throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
+          }
+
+          const finalTask = await waitForTask(
+            (id) => client.validations.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
+            String(taskId),
+            { timeout, pollInterval, outputFormat: fmt },
+          );
+
+          const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+          if (effectiveFmt === 'table') {
+            printTable(finalTask);
+          } else {
+            printJson(finalTask);
+          }
+          return;
+        }
+
+        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+        if (effectiveFmt === 'table') {
+          printTable(data);
+        } else {
+          printJson(data);
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    });
+}

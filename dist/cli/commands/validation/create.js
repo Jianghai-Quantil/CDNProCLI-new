@@ -1,0 +1,81 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.registerValidationCreateCommand = registerValidationCreateCommand;
+const config_1 = require("../../config");
+const CDNProClient_1 = require("../../../client/CDNProClient");
+const output_1 = require("../../output");
+const errors_1 = require("../../errors");
+const errors_2 = require("../../errors");
+const util_1 = require("../../util");
+const wait_1 = require("../../wait");
+const synthesize_1 = require("../../../schema/synthesize");
+const validate_1 = require("../../../schema/validate");
+function registerValidationCreateCommand(parent) {
+    parent
+        .command('create')
+        .description('Create a validation task from a JSON body file')
+        .option('--file <path>', 'Request body as JSON (- for stdin)')
+        .option('--example', 'Print an example request body and exit')
+        .option('--wait', 'Poll until validation completes')
+        .option('--timeout <seconds>', 'Max wait time [default: 300]')
+        .option('--poll-interval <seconds>', 'Poll frequency [default: 10]')
+        .action(async (opts, cmd) => {
+        try {
+            if (opts.example) {
+                const example = (0, synthesize_1.getExampleBody)('/cdn/validations', 'post');
+                process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+                return;
+            }
+            if (!opts.file) {
+                process.stderr.write("Error: required option '--file <path>' not specified\n");
+                process.exit(1);
+            }
+            const globals = cmd.optsWithGlobals();
+            const serverInfo = await (0, config_1.resolveCredentials)(globals);
+            const client = new CDNProClient_1.CDNProClient(serverInfo);
+            const fmt = globals.output;
+            const body = (0, util_1.readBodyFile)(opts.file);
+            const validation = (0, validate_1.validateBody)('/cdn/validations', 'post', body);
+            if (!validation.valid)
+                (0, util_1.emitValidationError)(validation, 'cdnpro validation create --example', globals.output);
+            const reqOptions = {
+                ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+                ...(globals.verbose ? { verbose: globals.verbose } : {}),
+            };
+            const data = await client.validations.create(body, reqOptions);
+            if (opts.wait) {
+                const taskId = (data['id'] ?? data['taskId']);
+                if (!taskId)
+                    throw new errors_2.CliError('ERROR', 'Server did not return a task ID; cannot poll');
+                const timeout = parseInt(opts.timeout ?? '300', 10);
+                if (isNaN(timeout) || timeout < 1) {
+                    throw new errors_2.CliError('VALIDATION', `--timeout must be a positive integer, got: ${opts.timeout}`);
+                }
+                const pollInterval = parseInt(opts.pollInterval ?? '10', 10);
+                if (isNaN(pollInterval) || pollInterval < 1) {
+                    throw new errors_2.CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
+                }
+                const finalTask = await (0, wait_1.waitForTask)((id) => client.validations.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
+                const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+                if (effectiveFmt === 'table') {
+                    (0, output_1.printTable)(finalTask);
+                }
+                else {
+                    (0, output_1.printJson)(finalTask);
+                }
+                return;
+            }
+            const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+            if (effectiveFmt === 'table') {
+                (0, output_1.printTable)(data);
+            }
+            else {
+                (0, output_1.printJson)(data);
+            }
+        }
+        catch (err) {
+            (0, errors_1.handleError)(err);
+        }
+    });
+}
+//# sourceMappingURL=create.js.map

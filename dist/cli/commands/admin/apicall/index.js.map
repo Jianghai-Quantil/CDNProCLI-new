@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../../src/cli/commands/admin/apicall/index.ts"],"names":[],"mappings":";;AAIA,oEAOC;AAVD,iCAAyD;AACzD,+BAAuD;AAEvD,SAAgB,4BAA4B,CAAC,MAAe;IAC1D,MAAM,GAAG,GAAG,MAAM;SACf,OAAO,CAAC,SAAS,CAAC;SAClB,WAAW,CAAC,yBAAyB,CAAC,CAAC;IAE1C,IAAA,sCAA+B,EAAC,GAAG,CAAC,CAAC;IACrC,IAAA,oCAA8B,EAAC,GAAG,CAAC,CAAC;AACtC,CAAC"}
