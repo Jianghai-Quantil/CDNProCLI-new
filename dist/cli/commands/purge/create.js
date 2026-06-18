@@ -97,6 +97,7 @@ function registerPurgeCreateCommand(parent) {
             };
             const raw = await client.purges.create(body, { ...reqOptions, raw: true });
             const data = (0, util_1.enrichWithLocationId)(raw);
+            const id = data['id'];
             if (opts.wait) {
                 const taskId = data['id'];
                 if (!taskId)
@@ -109,11 +110,11 @@ function registerPurgeCreateCommand(parent) {
                 if (isNaN(pollInterval) || pollInterval < 1) {
                     throw new errors_2.CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
                 }
-                const finalTask = await (0, wait_1.waitForTask)((id) => client.purges.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
-                (0, output_1.printResult)(finalTask, fmt);
+                await (0, wait_1.waitForTask)((id) => client.purges.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
+                (0, output_1.printCreateSuccess)('Purge', 'purgeId', String(taskId), fmt);
                 return;
             }
-            (0, output_1.printResult)(data, fmt);
+            (0, output_1.printCreateSuccess)('Purge', 'purgeId', id, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

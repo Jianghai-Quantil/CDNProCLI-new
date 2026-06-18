@@ -28,6 +28,12 @@ export declare function printJsonl(data: unknown): void;
  * format is only appropriate for list endpoints.
  */
 export declare function printResult(data: unknown, format: OutputFormat | undefined, columns?: string[]): void;
+/**
+ * Print a success message for resource creation.
+ * In TTY mode (no explicit format): "Created new <label>: \"<id>\"." to stderr.
+ * In pipe / explicit format mode: {"success":true,"<jsonKey>":"<id>"} to stdout.
+ */
+export declare function printCreateSuccess(label: string, jsonKey: string, id: string, format?: string): void;
 export declare function printTable(data: unknown, columns?: string[]): void;
 /**
  * Build a meta object from a list response.

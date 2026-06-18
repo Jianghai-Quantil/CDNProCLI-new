@@ -41,16 +41,17 @@ function registerSummaryReportCommand(parent, name, desc, path, { noScheme = fal
                 throw new errors_2.CliError('VALIDATION', '--from and --to are required');
             }
             let body;
+            const query = {};
             if (opts.file) {
                 body = (0, util_1.readBodyFile)(opts.file);
             }
             else {
-                const filters = {
-                    startDate: opts.from,
-                    endDate: opts.to,
-                };
+                query.startdate = opts.from;
+                query.enddate = opts.to;
                 if (!noScheme && opts.scheme)
-                    filters['scheme'] = opts.scheme;
+                    query.scheme = opts.scheme;
+                const filters = {};
+                const bodyObj = {};
                 if (edgeHostnameFilter) {
                     if ((opts.edgeHostname ?? []).length > 0)
                         filters['edgeHostnames'] = opts.edgeHostname;
@@ -65,15 +66,17 @@ function registerSummaryReportCommand(parent, name, desc, path, { noScheme = fal
                     if ((opts.serverGroup ?? []).length > 0)
                         filters['serverGroups'] = opts.serverGroup;
                     if ((opts.groupBy ?? []).length > 0)
-                        filters['groupBy'] = opts.groupBy;
+                        bodyObj['groupBy'] = opts.groupBy;
                 }
-                body = filters;
+                if (Object.keys(filters).length > 0)
+                    bodyObj['filters'] = filters;
+                body = Object.keys(bodyObj).length > 0 ? bodyObj : undefined;
             }
             const reqOptions = {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.report.post(path, { body }, reqOptions);
+            const data = await client.report.post(path, { query, body }, reqOptions);
             (0, output_1.printResult)(data, fmt);
         }
         catch (err) {

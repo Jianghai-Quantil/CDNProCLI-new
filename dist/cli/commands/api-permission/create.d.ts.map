@@ -1,1 +1,1 @@
-{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/api-permission/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAcpC,wBAAgB,kCAAkC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwCxE"}
+{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/api-permission/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAcpC,wBAAgB,kCAAkC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAyCxE"}

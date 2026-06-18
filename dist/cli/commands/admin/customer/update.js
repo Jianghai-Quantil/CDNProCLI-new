@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerAdminCustomerUpdateCommand = registerAdminCustomerUpdateCommand;
 const config_1 = require("../../../config");
 const CDNProClient_1 = require("../../../../client/CDNProClient");
-const output_1 = require("../../../output");
 const errors_1 = require("../../../errors");
 const util_1 = require("../../../util");
 const synthesize_1 = require("../../../../schema/synthesize");
@@ -28,7 +27,6 @@ function registerAdminCustomerUpdateCommand(parent) {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
-            const fmt = globals.output;
             const body = (0, util_1.readBodyFile)(opts.file);
             const validation = (0, validate_1.validateBody)('/ngadmin/customers/{id}', 'patch', body);
             if (!validation.valid)
@@ -36,8 +34,13 @@ function registerAdminCustomerUpdateCommand(parent) {
             const reqOptions = {
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.customers.update(id, body, reqOptions);
-            (0, output_1.printResult)(data, fmt);
+            await client.customers.update(id, body, reqOptions);
+            if (!process.stdout.isTTY || globals.output) {
+                process.stdout.write(JSON.stringify({ success: true }) + '\n');
+            }
+            else {
+                process.stderr.write(`Customer ${id} updated.\n`);
+            }
         }
         catch (err) {
             (0, errors_1.handleError)(err);

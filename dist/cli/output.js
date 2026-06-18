@@ -7,6 +7,7 @@ exports.print = print;
 exports.printJson = printJson;
 exports.printJsonl = printJsonl;
 exports.printResult = printResult;
+exports.printCreateSuccess = printCreateSuccess;
 exports.printTable = printTable;
 exports.buildMeta = buildMeta;
 const chalk_1 = __importDefault(require("chalk"));
@@ -71,6 +72,21 @@ function printResult(data, format, columns) {
         case 'json': return printJson(data);
         case 'jsonl': return printJsonl(data);
         case 'table': return printTable(data, columns);
+    }
+}
+/**
+ * Print a success message for resource creation.
+ * In TTY mode (no explicit format): "Created new <label>: \"<id>\"." to stderr.
+ * In pipe / explicit format mode: {"success":true,"<jsonKey>":"<id>"} to stdout.
+ */
+function printCreateSuccess(label, jsonKey, id, format) {
+    if (!process.stdout.isTTY || format) {
+        const result = { success: true };
+        result[jsonKey] = id;
+        process.stdout.write(JSON.stringify(result) + '\n');
+    }
+    else {
+        process.stderr.write(`Created new ${label}: "${id}".\n`);
     }
 }
 function printTable(data, columns) {

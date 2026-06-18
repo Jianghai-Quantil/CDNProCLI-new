@@ -28,7 +28,6 @@ function registerLogAggregationPointCreateCommand(parent) {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
-            const fmt = globals.output;
             const body = (0, util_1.readBodyFile)(opts.file);
             const validation = (0, validate_1.validateBody)('/cdn/logAggregationPoints', 'post', body);
             if (!validation.valid)
@@ -39,7 +38,8 @@ function registerLogAggregationPointCreateCommand(parent) {
             };
             const raw = await client.logAggregationPoints.create(body, { ...reqOptions, raw: true });
             const data = (0, util_1.enrichWithLocationId)(raw);
-            (0, output_1.printResult)(data, fmt);
+            const id = data['id'];
+            (0, output_1.printCreateSuccess)('Log Aggregation Point', 'logAggregationPointId', id, globals.output);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

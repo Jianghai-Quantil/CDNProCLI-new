@@ -46,17 +46,17 @@ function registerTimeSeriesReportCommand(parent, name, desc, path, { noScheme = 
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
             let body;
+            const query = {};
             if (opts.file) {
                 body = (0, util_1.readBodyFile)(opts.file);
             }
             else {
-                const filters = {
-                    startDate: opts.from,
-                    endDate: opts.to,
-                    granularity: opts.type,
-                };
+                query.startdate = opts.from;
+                query.enddate = opts.to;
+                query.type = opts.type;
                 if (!noScheme && opts.scheme)
-                    filters['scheme'] = opts.scheme;
+                    query.scheme = opts.scheme;
+                const filters = {};
                 if (edgeHostnameFilter) {
                     if ((opts.edgeHostname ?? []).length > 0)
                         filters['edgeHostnames'] = opts.edgeHostname;
@@ -71,14 +71,14 @@ function registerTimeSeriesReportCommand(parent, name, desc, path, { noScheme = 
                     if ((opts.serverGroup ?? []).length > 0)
                         filters['serverGroups'] = opts.serverGroup;
                 }
-                body = filters;
+                body = Object.keys(filters).length > 0 ? { filters } : undefined;
             }
             const reqOptions = {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(!noReportRange && opts.reportRange ? { reportRange: opts.reportRange } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.report.post(path, { body }, reqOptions);
+            const data = await client.report.post(path, { query, body }, reqOptions);
             (0, output_1.printResult)(data, fmt);
         }
         catch (err) {

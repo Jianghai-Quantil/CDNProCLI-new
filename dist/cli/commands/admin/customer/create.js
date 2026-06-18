@@ -28,7 +28,6 @@ function registerAdminCustomerCreateCommand(parent) {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
-            const fmt = globals.output;
             const body = (0, util_1.readBodyFile)(opts.file);
             const validation = (0, validate_1.validateBody)('/ngadmin/customers', 'post', body);
             if (!validation.valid)
@@ -38,7 +37,8 @@ function registerAdminCustomerCreateCommand(parent) {
             };
             const raw = await client.customers.create(body, { ...reqOptions, raw: true });
             const data = (0, util_1.enrichWithLocationId)(raw);
-            (0, output_1.printResult)(data, fmt);
+            const id = data['id'];
+            (0, output_1.printCreateSuccess)('Customer', 'customerId', id, globals.output);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

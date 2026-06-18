@@ -1,1 +1,1 @@
-{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/log-aggregation-point/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAMpC,wBAAgB,wCAAwC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAsB9E"}
+{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/log-aggregation-point/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAUpC,wBAAgB,wCAAwC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAsC9E"}

@@ -72,16 +72,17 @@ export function registerSummaryReportCommand(
       }
 
       let body: unknown;
+      const query: Record<string, unknown> = {};
 
       if (opts.file) {
         body = readBodyFile(opts.file);
       } else {
-        const filters: Record<string, unknown> = {
-          startDate: opts.from,
-          endDate: opts.to,
-        };
+        query.startdate = opts.from;
+        query.enddate = opts.to;
+        if (!noScheme && opts.scheme) query.scheme = opts.scheme;
 
-        if (!noScheme && opts.scheme) filters['scheme'] = opts.scheme;
+        const filters: Record<string, unknown> = {};
+        const bodyObj: Record<string, unknown> = {};
 
         if (edgeHostnameFilter) {
           if ((opts.edgeHostname ?? []).length > 0) filters['edgeHostnames'] = opts.edgeHostname;
@@ -90,10 +91,11 @@ export function registerSummaryReportCommand(
           if ((opts.property ?? []).length > 0) filters['propertyIds'] = opts.property;
           if ((opts.propertyHostname ?? []).length > 0) filters['propertyHostnames'] = opts.propertyHostname;
           if ((opts.serverGroup ?? []).length > 0) filters['serverGroups'] = opts.serverGroup;
-          if ((opts.groupBy ?? []).length > 0) filters['groupBy'] = opts.groupBy;
+          if ((opts.groupBy ?? []).length > 0) bodyObj['groupBy'] = opts.groupBy;
         }
 
-        body = filters;
+        if (Object.keys(filters).length > 0) bodyObj['filters'] = filters;
+        body = Object.keys(bodyObj).length > 0 ? bodyObj : undefined;
       }
 
       const reqOptions = {
@@ -101,7 +103,7 @@ export function registerSummaryReportCommand(
         ...(globals.verbose ? { verbose: globals.verbose } : {}),
       };
 
-      const data = await client.report.post(path, { body }, reqOptions);
+      const data = await client.report.post(path, { query, body }, reqOptions);
       printResult(data, fmt);
     } catch (err) {
       handleError(err);

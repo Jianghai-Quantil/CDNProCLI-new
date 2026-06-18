@@ -72,15 +72,15 @@ export function registerReportCommands(parent: Command): void {
         const fmt = globals.output as OutputFormat | undefined;
 
         let body: unknown;
+        const query: Record<string, unknown> = {};
         if (opts.file) {
           body = readBodyFile(opts.file);
         } else {
-          const filters: Record<string, unknown> = {
-            startDate: opts.from,
-            endDate: opts.to,
-          };
+          query.startdate = opts.from;
+          query.enddate = opts.to;
+          const filters: Record<string, unknown> = {};
           if ((opts.hostname ?? []).length > 0) filters['hostnames'] = opts.hostname;
-          body = filters;
+          body = Object.keys(filters).length > 0 ? { filters } : undefined;
         }
 
         const reqOptions = {
@@ -88,7 +88,7 @@ export function registerReportCommands(parent: Command): void {
           ...(globals.verbose ? { verbose: globals.verbose } : {}),
         };
 
-        const data = await client.report.post('/cdn/report/logDownload', { body }, reqOptions);
+        const data = await client.report.post('/cdn/report/logDownload', { query, body }, reqOptions);
         printResult(data, fmt);
       } catch (err) {
         handleError(err);

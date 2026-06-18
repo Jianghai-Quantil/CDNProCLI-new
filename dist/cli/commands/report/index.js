@@ -55,23 +55,23 @@ function registerReportCommands(parent) {
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
             let body;
+            const query = {};
             if (opts.file) {
                 body = (0, util_1.readBodyFile)(opts.file);
             }
             else {
-                const filters = {
-                    startDate: opts.from,
-                    endDate: opts.to,
-                };
+                query.startdate = opts.from;
+                query.enddate = opts.to;
+                const filters = {};
                 if ((opts.hostname ?? []).length > 0)
                     filters['hostnames'] = opts.hostname;
-                body = filters;
+                body = Object.keys(filters).length > 0 ? { filters } : undefined;
             }
             const reqOptions = {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.report.post('/cdn/report/logDownload', { body }, reqOptions);
+            const data = await client.report.post('/cdn/report/logDownload', { query, body }, reqOptions);
             (0, output_1.printResult)(data, fmt);
         }
         catch (err) {

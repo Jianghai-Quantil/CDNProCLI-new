@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerLogConfigUpdateCommand = registerLogConfigUpdateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
-const output_1 = require("../../output");
 const errors_1 = require("../../errors");
 const util_1 = require("../../util");
 const synthesize_1 = require("../../../schema/synthesize");
@@ -29,7 +28,6 @@ function registerLogConfigUpdateCommand(parent) {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
-            const fmt = globals.output;
             const body = (0, util_1.readBodyFile)(opts.file);
             const validation = (0, validate_1.validateBody)('/cdn/report/logConfigs/{id}', 'patch', body);
             if (!validation.valid)
@@ -42,8 +40,13 @@ function registerLogConfigUpdateCommand(parent) {
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
                 ...(Object.keys(headers).length > 0 ? { headers } : {}),
             };
-            const data = await client.logConfigs.update(id, body, reqOptions);
-            (0, output_1.printResult)(data, fmt);
+            await client.logConfigs.update(id, body, reqOptions);
+            if (!process.stdout.isTTY || globals.output) {
+                process.stdout.write(JSON.stringify({ success: true }) + '\n');
+            }
+            else {
+                process.stderr.write(`Log config ${id} updated.\n`);
+            }
         }
         catch (err) {
             (0, errors_1.handleError)(err);
