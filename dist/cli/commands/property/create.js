@@ -37,7 +37,8 @@ function registerPropertyCreateCommand(parent) {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.properties.create(body, reqOptions);
+            const raw = await client.properties.create(body, { ...reqOptions, raw: true });
+            const data = (0, util_1.enrichWithLocationId)(raw);
             const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
             if (effectiveFmt === 'table') {
                 (0, output_1.printTable)(data);

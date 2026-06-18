@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.readBodyFile = readBodyFile;
 exports.emitValidationError = emitValidationError;
+exports.checkRequiredOption = checkRequiredOption;
+exports.enrichWithLocationId = enrichWithLocationId;
 const fs = __importStar(require("fs"));
 const errors_1 = require("./errors");
 /**
@@ -98,5 +100,34 @@ function emitValidationError(result, hint, output) {
         process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
     }
     throw new errors_1.CliError('VALIDATION', 'Invalid request body', undefined, true);
+}
+/**
+ * Validates that a required option is present.  Use this instead of
+ * Commander's `.requiredOption()` whenever the command also supports
+ * `--example`, because `.requiredOption()` rejects the command before
+ * the action handler gets a chance to handle `--example`.
+ */
+function checkRequiredOption(value, flagName) {
+    if (!value) {
+        throw new errors_1.CliError('VALIDATION', `Required option ${flagName} not specified`);
+    }
+}
+/**
+ * Given a raw API response, extract the resource ID from the Location header
+ * and enrich the response body with it.  Many CDN Pro POST endpoints return
+ * the new resource's URL in the Location header rather than in the body.
+ */
+function enrichWithLocationId(raw) {
+    const data = (raw.obj ?? {});
+    if (data['id'] !== undefined && data['id'] !== null)
+        return data;
+    const location = raw.ctx._res.headers['location'];
+    if (!location)
+        return data;
+    const id = location.split('/').pop();
+    if (id) {
+        return { ...data, id };
+    }
+    return data;
 }
 //# sourceMappingURL=util.js.map

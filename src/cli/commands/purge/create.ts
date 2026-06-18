@@ -4,7 +4,7 @@ import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
-import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId, checkRequiredOption } from '../../util';
 import { waitForTask } from '../../wait';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { getExampleBody } from '../../../schema/synthesize';
@@ -30,7 +30,7 @@ export function registerPurgeCreateCommand(parent: Command): void {
   parent
     .command('create')
     .description('Create a purge request')
-    .requiredOption('--target <env>', 'Environment to purge: staging | production')
+    .option('--target <env>', 'Environment to purge: staging | production')
     .option('--url <url>', 'Exact file URL to purge; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
     .option('--dir <url>', 'Directory URL (supports * / **); repeatable; max 20', (v: string, prev: string[]) => [...prev, v], [] as string[])
     .option('--regex <pattern>', 'Regex pattern (scheme://hostname/...); repeatable; max 2', (v: string, prev: string[]) => [...prev, v], [] as string[])
@@ -59,6 +59,8 @@ export function registerPurgeCreateCommand(parent: Command): void {
         const fmt = globals.output as OutputFormat | undefined;
 
         let body: unknown;
+
+        checkRequiredOption(opts.target, '--target <env>');
 
         if (opts.file) {
           body = readBodyFile(opts.file);

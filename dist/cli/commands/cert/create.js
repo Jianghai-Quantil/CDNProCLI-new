@@ -44,7 +44,6 @@ const errors_2 = require("../../errors");
 const util_1 = require("../../util");
 const loader_1 = require("../../../schema/loader");
 const validate_1 = require("../../../schema/validate");
-const util_2 = require("../../util");
 function readPemFile(filePath, label) {
     try {
         return fs.readFileSync(filePath, 'utf8');
@@ -132,7 +131,7 @@ function registerCertCreateCommand(parent) {
                 body = (0, util_1.readBodyFile)(opts.file);
                 const validation = (0, validate_1.validateBody)('/cdn/certificates', 'post', body);
                 if (!validation.valid)
-                    (0, util_2.emitValidationError)(validation, 'cdnpro cert create --example', globals.output);
+                    (0, util_1.emitValidationError)(validation, 'cdnpro cert create --example', globals.output);
             }
             else if (isUpload) {
                 if (!opts.cert)
@@ -160,7 +159,8 @@ function registerCertCreateCommand(parent) {
                     ...(globals.verbose ? { verbose: globals.verbose } : {}),
                     dateOverride: dateStr,
                 };
-                const data = await client.certificates.create(body, reqOptions);
+                const raw = await client.certificates.create(body, { ...reqOptions, raw: true, dateOverride: dateStr });
+                const data = (0, util_1.enrichWithLocationId)(raw);
                 const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
                 if (effectiveFmt === 'table') {
                     (0, output_1.printTable)(data);
@@ -220,7 +220,8 @@ function registerCertCreateCommand(parent) {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.certificates.create(body, reqOptions);
+            const raw = await client.certificates.create(body, { ...reqOptions, raw: true });
+            const data = (0, util_1.enrichWithLocationId)(raw);
             const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
             if (effectiveFmt === 'table') {
                 (0, output_1.printTable)(data);

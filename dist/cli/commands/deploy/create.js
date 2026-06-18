@@ -10,7 +10,6 @@ const util_1 = require("../../util");
 const wait_1 = require("../../wait");
 const loader_1 = require("../../../schema/loader");
 const validate_1 = require("../../../schema/validate");
-const util_2 = require("../../util");
 function parseAtVersion(spec, flagName) {
     const atIdx = spec.lastIndexOf('@');
     if (atIdx < 1 || atIdx === spec.length - 1) {
@@ -22,7 +21,7 @@ function registerDeployCreateCommand(parent) {
     parent
         .command('create')
         .description('Create a deployment task')
-        .requiredOption('--target <env>', 'Deployment environment: staging | production')
+        .option('--target <env>', 'Deployment environment: staging | production')
         // Action flags
         .option('--deploy-property <id@version>', 'Deploy a property at the specified version; repeatable', (v, prev) => [...prev, v], [])
         .option('--remove-property <id>', 'Remove a property from the target environment; repeatable', (v, prev) => [...prev, v], [])
@@ -55,11 +54,12 @@ function registerDeployCreateCommand(parent) {
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
             let body;
+            (0, util_1.checkRequiredOption)(opts.target, '--target <env>');
             if (opts.file) {
                 body = (0, util_1.readBodyFile)(opts.file);
                 const validation = (0, validate_1.validateBody)('/cdn/deploymentTasks', 'post', body);
                 if (!validation.valid)
-                    (0, util_2.emitValidationError)(validation, 'cdnpro deploy create --example', globals.output);
+                    (0, util_1.emitValidationError)(validation, 'cdnpro deploy create --example', globals.output);
             }
             else {
                 const hasActions = (opts.deployProperty?.length ?? 0) > 0 ||
@@ -109,13 +109,9 @@ function registerDeployCreateCommand(parent) {
                 ...(Object.keys(bypassHeaders).length > 0 ? { headers: bypassHeaders } : {}),
             };
             const raw = await client.deploymentTasks.create(body, { ...reqOptions, raw: true });
-            const data = raw.obj ?? {};
+            const data = (0, util_1.enrichWithLocationId)(raw);
             if (opts.wait) {
-                // The API returns the new resource URL in the Location header, not the body.
-                const location = raw.ctx._res.headers['location'];
-                const taskId = location
-                    ? location.split('/').pop()
-                    : (data['id'] ?? data['taskId']);
+                const taskId = data['id'];
                 if (!taskId)
                     throw new errors_2.CliError('ERROR', 'Server did not return a task ID; cannot poll');
                 const timeout = parseInt(opts.timeout ?? '600', 10);

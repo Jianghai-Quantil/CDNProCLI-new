@@ -42,9 +42,10 @@ function registerValidationCreateCommand(parent) {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.validations.create(body, reqOptions);
+            const raw = await client.validations.create(body, { ...reqOptions, raw: true });
+            const data = (0, util_1.enrichWithLocationId)(raw);
             if (opts.wait) {
-                const taskId = (data['id'] ?? data['taskId']);
+                const taskId = data['id'];
                 if (!taskId)
                     throw new errors_2.CliError('ERROR', 'Server did not return a task ID; cannot poll');
                 const timeout = parseInt(opts.timeout ?? '300', 10);

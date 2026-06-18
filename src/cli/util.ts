@@ -71,6 +71,21 @@ export function emitValidationError(
 }
 
 /**
+ * Validates that a required option is present.  Use this instead of
+ * Commander's `.requiredOption()` whenever the command also supports
+ * `--example`, because `.requiredOption()` rejects the command before
+ * the action handler gets a chance to handle `--example`.
+ */
+export function checkRequiredOption(
+  value: string | undefined,
+  flagName: string,
+): asserts value is string {
+  if (!value) {
+    throw new CliError('VALIDATION', `Required option ${flagName} not specified`);
+  }
+}
+
+/**
  * Given a raw API response, extract the resource ID from the Location header
  * and enrich the response body with it.  Many CDN Pro POST endpoints return
  * the new resource's URL in the Location header rather than in the body.

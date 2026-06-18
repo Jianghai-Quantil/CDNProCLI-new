@@ -11,12 +11,11 @@ const wait_1 = require("../../wait");
 const loader_1 = require("../../../schema/loader");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
-const util_2 = require("../../util");
 function registerPurgeCreateCommand(parent) {
     parent
         .command('create')
         .description('Create a purge request')
-        .requiredOption('--target <env>', 'Environment to purge: staging | production')
+        .option('--target <env>', 'Environment to purge: staging | production')
         .option('--url <url>', 'Exact file URL to purge; repeatable', (v, prev) => [...prev, v], [])
         .option('--dir <url>', 'Directory URL (supports * / **); repeatable; max 20', (v, prev) => [...prev, v], [])
         .option('--regex <pattern>', 'Regex pattern (scheme://hostname/...); repeatable; max 2', (v, prev) => [...prev, v], [])
@@ -42,11 +41,12 @@ function registerPurgeCreateCommand(parent) {
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
             let body;
+            (0, util_1.checkRequiredOption)(opts.target, '--target <env>');
             if (opts.file) {
                 body = (0, util_1.readBodyFile)(opts.file);
                 const validation = (0, validate_1.validateBody)('/cdn/purges', 'post', body);
                 if (!validation.valid)
-                    (0, util_2.emitValidationError)(validation, 'cdnpro purge create --example', globals.output);
+                    (0, util_1.emitValidationError)(validation, 'cdnpro purge create --example', globals.output);
             }
             else {
                 const urls = opts.url ?? [];
@@ -96,12 +96,9 @@ function registerPurgeCreateCommand(parent) {
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
             const raw = await client.purges.create(body, { ...reqOptions, raw: true });
-            const data = raw.obj ?? {};
+            const data = (0, util_1.enrichWithLocationId)(raw);
             if (opts.wait) {
-                const location = raw.ctx._res.headers['location'];
-                const taskId = location
-                    ? location.split('/').pop()
-                    : (data['id'] ?? data['taskId']);
+                const taskId = data['id'];
                 if (!taskId)
                     throw new errors_2.CliError('ERROR', 'Server did not return a task ID; cannot poll');
                 const timeout = parseInt(opts.timeout ?? '600', 10);

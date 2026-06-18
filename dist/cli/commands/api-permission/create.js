@@ -37,7 +37,8 @@ function registerApiPermissionCreateCommand(parent) {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.apiPermissions.create(body, reqOptions);
+            const raw = await client.apiPermissions.create(body, { ...reqOptions, raw: true });
+            const data = (0, util_1.enrichWithLocationId)(raw);
             (0, output_1.print)(data, fmt);
         }
         catch (err) {

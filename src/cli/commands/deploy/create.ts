@@ -4,7 +4,7 @@ import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
-import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId, checkRequiredOption } from '../../util';
 import { waitForTask } from '../../wait';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { validateBody } from '../../../schema/validate';
@@ -89,12 +89,7 @@ export function registerDeployCreateCommand(parent: Command): void {
 
         let body: unknown;
 
-        if (!opts.target) {
-          throw new CliError(
-            'VALIDATION',
-            'Required option --target <env> not specified',
-          );
-        }
+        checkRequiredOption(opts.target, '--target <env>');
 
         if (opts.file) {
           body = readBodyFile(opts.file);
