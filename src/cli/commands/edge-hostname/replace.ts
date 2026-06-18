@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError, checkRequiredOption } from "../../util";
 import { getExampleBody } from '../../../schema/synthesize';
@@ -34,8 +33,6 @@ export function registerEdgeHostnameReplaceCommand(parent: Command): void {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
-
         const body = readBodyFile(opts.file);
         const validation = validateBody('/cdn/edgeHostnames/{edgeHostname}', 'put', body);
         if (!validation.valid) emitValidationError(validation, 'cdnpro edge-hostname replace --example', globals.output);
@@ -49,8 +46,12 @@ export function registerEdgeHostnameReplaceCommand(parent: Command): void {
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         };
 
-        const data = await client.edgeHostnames.replace(name, body, reqOptions);
-        printResult(data, fmt);
+        await client.edgeHostnames.replace(name, body, reqOptions);
+        if (!process.stdout.isTTY || globals.output) {
+          process.stdout.write(JSON.stringify({ success: true }) + '\n');
+        } else {
+          process.stderr.write(`Edge hostname ${name} replaced.\n`);
+        }
       } catch (err) {
         handleError(err);
       }
