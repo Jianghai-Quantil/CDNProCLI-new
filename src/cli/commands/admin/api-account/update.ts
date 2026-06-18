@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../../config';
 import { CDNProClient } from '../../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../../output';
 import { handleError } from '../../../errors';
 import { readBodyFile, emitValidationError } from '../../../util';
 import { getExampleBody } from '../../../../schema/synthesize';
@@ -34,7 +33,6 @@ export function registerAdminApiAccountUpdateCommand(parent: Command): void {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
 
         const body = readBodyFile(opts.file);
         const validation = validateBody('/ngadmin/apiAccounts/{id}', 'patch', body);
@@ -44,8 +42,12 @@ export function registerAdminApiAccountUpdateCommand(parent: Command): void {
           ...(globals.verbose ? { verbose: globals.verbose } : {}),
         };
 
-        const data = await client.apiAccounts.update(id, body, reqOptions);
-        printResult(data, fmt);
+        await client.apiAccounts.update(id, body, reqOptions);
+        if (!process.stdout.isTTY || globals.output) {
+          process.stdout.write(JSON.stringify({ success: true }) + '\n');
+        } else {
+          process.stderr.write(`API account ${id} updated.\n`);
+        }
       } catch (err) {
         handleError(err);
       }

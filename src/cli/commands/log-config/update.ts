@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
@@ -36,7 +35,6 @@ export function registerLogConfigUpdateCommand(parent: Command): void {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
 
         const body = readBodyFile(opts.file);
         const validation = validateBody('/cdn/report/logConfigs/{id}', 'patch', body);
@@ -51,8 +49,12 @@ export function registerLogConfigUpdateCommand(parent: Command): void {
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         };
 
-        const data = await client.logConfigs.update(id, body, reqOptions);
-        printResult(data, fmt);
+        await client.logConfigs.update(id, body, reqOptions);
+        if (!process.stdout.isTTY || globals.output) {
+          process.stdout.write(JSON.stringify({ success: true }) + '\n');
+        } else {
+          process.stderr.write(`Log config ${id} updated.\n`);
+        }
       } catch (err) {
         handleError(err);
       }

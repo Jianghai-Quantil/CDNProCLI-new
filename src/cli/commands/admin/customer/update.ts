@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../../config';
 import { CDNProClient } from '../../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../../output';
 import { handleError } from '../../../errors';
 import { readBodyFile, emitValidationError } from '../../../util';
 import { getExampleBody } from '../../../../schema/synthesize';
@@ -34,7 +33,6 @@ export function registerAdminCustomerUpdateCommand(parent: Command): void {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
 
         const body = readBodyFile(opts.file);
         const validation = validateBody('/ngadmin/customers/{id}', 'patch', body);
@@ -44,8 +42,12 @@ export function registerAdminCustomerUpdateCommand(parent: Command): void {
           ...(globals.verbose ? { verbose: globals.verbose } : {}),
         };
 
-        const data = await client.customers.update(id, body, reqOptions);
-        printResult(data, fmt);
+        await client.customers.update(id, body, reqOptions);
+        if (!process.stdout.isTTY || globals.output) {
+          process.stdout.write(JSON.stringify({ success: true }) + '\n');
+        } else {
+          process.stderr.write(`Customer ${id} updated.\n`);
+        }
       } catch (err) {
         handleError(err);
       }
