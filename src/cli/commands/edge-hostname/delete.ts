@@ -1,10 +1,11 @@
 import { Command } from 'commander';
+import * as readline from 'readline';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 
 interface DeleteOpts {
+  confirm?: boolean;
   skipUsageCheck?: boolean;
 }
 
@@ -12,13 +13,24 @@ export function registerEdgeHostnameDeleteCommand(parent: Command): void {
   parent
     .command('delete <name>')
     .description('Delete an edge hostname')
+    .option('--confirm', 'Skip confirmation prompt')
     .option('--skip-usage-check', 'Send Check-Usage: no — skip dependency safety check')
     .action(async (name: string, opts: DeleteOpts, cmd: Command) => {
       try {
+        if (!opts.confirm && process.stdout.isTTY) {
+          const answer = await new Promise<string>((resolve) => {
+            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            rl.question(`Delete edge hostname "${name}"? [y/N] `, (ans) => { rl.close(); resolve(ans); });
+          });
+          if (answer.toLowerCase() !== 'y') {
+            process.stderr.write('Aborted.\n');
+            process.exit(0);
+          }
+        }
+
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
 
         const headers: Record<string, string> = {};
         if (opts.skipUsageCheck) headers['Check-Usage'] = 'no';
@@ -29,8 +41,13 @@ export function registerEdgeHostnameDeleteCommand(parent: Command): void {
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         };
 
-        const data = await client.edgeHostnames.delete(name, reqOptions);
-        printResult(data, fmt);
+        await client.edgeHostnames.delete(name, reqOptions);
+
+        if (!process.stdout.isTTY || globals.output) {
+          process.stdout.write(JSON.stringify({ success: true, edgeHostname: name }) + '\n');
+        } else {
+          process.stderr.write(`Edge hostname ${name} deleted.\n`);
+        }
       } catch (err) {
         handleError(err);
       }
