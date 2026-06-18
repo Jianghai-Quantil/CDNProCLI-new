@@ -15,12 +15,12 @@ interface ReplaceOpts {
 
 export function registerEdgeHostnameReplaceCommand(parent: Command): void {
   parent
-    .command('replace <name>')
+    .command('replace [name]')
     .description('Fully replace an edge hostname (PUT)')
     .option('--file <path>', 'Request body as JSON (- for stdin)')
     .option('--example', 'Print an example request body and exit')
     .option('--if-unmodified-since <date>', 'Optimistic concurrency guard (If-Unmodified-Since header)')
-    .action(async (name: string, opts: ReplaceOpts, cmd: Command) => {
+    .action(async (name: string | undefined, opts: ReplaceOpts, cmd: Command) => {
       try {
         if (opts.example) {
           const example = getExampleBody('/cdn/edgeHostnames/{edgeHostname}', 'put');
@@ -29,6 +29,7 @@ export function registerEdgeHostnameReplaceCommand(parent: Command): void {
         }
 
         checkRequiredOption(opts.file, "--file <path>");
+        checkRequiredOption(name, 'name');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

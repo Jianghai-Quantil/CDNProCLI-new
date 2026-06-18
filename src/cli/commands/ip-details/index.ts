@@ -3,11 +3,13 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
-import { readBodyFile, emitValidationError } from '../../util';
+import { readBodyFile, emitValidationError, checkRequiredOption } from '../../util';
+import { getExampleBody } from '../../../schema/synthesize';
 import { validateBody } from '../../../schema/validate';
 
 interface LookupOpts {
-  file: string;
+  file?: string;
+  example?: boolean;
 }
 
 export function registerIpDetailsCommands(parent: Command): void {
@@ -18,9 +20,18 @@ export function registerIpDetailsCommands(parent: Command): void {
   ipCmd
     .command('lookup')
     .description('Look up details for a list of IP addresses (POST /ngadmin/ipDetails)')
-    .requiredOption('--file <path>', 'Request body as JSON (- for stdin)')
+    .option('--file <path>', 'Request body as JSON (- for stdin)')
+    .option('--example', 'Print an example request body and exit')
     .action(async (opts: LookupOpts, cmd: Command) => {
       try {
+        if (opts.example) {
+          const example = getExampleBody('/ngadmin/ipDetails', 'post');
+          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+          return;
+        }
+
+        checkRequiredOption(opts.file, '--file <path>');
+
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);

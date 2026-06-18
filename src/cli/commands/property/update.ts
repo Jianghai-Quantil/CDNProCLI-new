@@ -14,12 +14,12 @@ interface UpdateOpts {
 
 export function registerPropertyUpdateCommand(parent: Command): void {
   parent
-    .command('update <id>')
+    .command('update [id]')
     .description('Update a property (PATCH)')
     .option('--file <path>', 'JSON body file (use - for stdin)')
     .option('--if-unmodified-since <date>', 'If-Unmodified-Since header (RFC 1123); server returns 412 if modified since')
     .option('--example', 'Print an example request body and exit')
-    .action(async (id: string, opts: UpdateOpts, cmd: Command) => {
+    .action(async (id: string | undefined, opts: UpdateOpts, cmd: Command) => {
       try {
         if (opts.example) {
           const example = getExampleBody('/cdn/properties/{propertyID}', 'patch');
@@ -28,6 +28,7 @@ export function registerPropertyUpdateCommand(parent: Command): void {
         }
 
         checkRequiredOption(opts.file, '--file <path>');
+        checkRequiredOption(id, 'id');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

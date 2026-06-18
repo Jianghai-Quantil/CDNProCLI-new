@@ -9,7 +9,7 @@ const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
 function registerPropertyVersionUpdateCommand(parent) {
     parent
-        .command('update <propertyId> <version>')
+        .command('update [propertyId] [version]')
         .description('Update a property version (PATCH)')
         .option('--file <path>', 'JSON body file (use - for stdin)')
         .option('--if-unmodified-since <date>', 'If-Unmodified-Since header (RFC 1123); server returns 412 if modified since')
@@ -22,6 +22,8 @@ function registerPropertyVersionUpdateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, '--file <path>');
+            (0, util_1.checkRequiredOption)(propertyId, 'propertyId');
+            (0, util_1.checkRequiredOption)(version, 'version');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

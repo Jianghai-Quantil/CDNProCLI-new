@@ -14,11 +14,11 @@ interface CreateOpts {
 
 export function registerPropertyVersionCreateCommand(parent: Command): void {
   parent
-    .command('create <propertyId>')
+    .command('create [propertyId]')
     .description('Create a new version of a property')
     .option('--file <path>', 'JSON body file (use - for stdin)')
     .option('--example', 'Print an example request body and exit')
-    .action(async (propertyId: string, opts: CreateOpts, cmd: Command) => {
+    .action(async (propertyId: string | undefined, opts: CreateOpts, cmd: Command) => {
       try {
         if (opts.example) {
           const example = getExampleBody('/cdn/properties/{propertyID}/versions', 'post');
@@ -27,6 +27,7 @@ export function registerPropertyVersionCreateCommand(parent: Command): void {
         }
 
         checkRequiredOption(opts.file, '--file <path>');
+        checkRequiredOption(propertyId, 'propertyId');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

@@ -14,12 +14,12 @@ interface UpdateOpts {
 
 export function registerWebhookUpdateCommand(parent: Command): void {
   parent
-    .command('update <id>')
+    .command('update [id]')
     .description('Update a webhook (PATCH)')
     .option('--file <path>', 'Request body as JSON (- for stdin)')
     .option('--example', 'Print an example request body and exit')
     .option('--if-unmodified-since <date>', 'Optimistic concurrency guard (If-Unmodified-Since header)')
-    .action(async (id: string, opts: UpdateOpts, cmd: Command) => {
+    .action(async (id: string | undefined, opts: UpdateOpts, cmd: Command) => {
       try {
         if (opts.example) {
           const example = getExampleBody('/cdn/webhooks/{id}', 'patch');
@@ -28,6 +28,7 @@ export function registerWebhookUpdateCommand(parent: Command): void {
         }
 
         checkRequiredOption(opts.file, "--file <path>");
+        checkRequiredOption(id, 'id');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

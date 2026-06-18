@@ -5,10 +5,9 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
-import { readBodyFile } from '../../util';
+import { readBodyFile, emitValidationError, checkRequiredOption } from '../../util';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { validateBody } from '../../../schema/validate';
-import { emitValidationError } from '../../util';
 
 interface UpdateOpts {
   name?: string;
@@ -67,7 +66,7 @@ function encryptPrivateKey(pemContent: string, secretKey: string, dateStr: strin
 
 export function registerCertUpdateCommand(parent: Command): void {
   parent
-    .command('update <id>')
+    .command('update [id]')
     .description('Add a new certificate version (PATCH)')
     .option('--name <name>', 'Friendly name for the certificate record')
     // Upload mode
@@ -92,7 +91,7 @@ export function registerCertUpdateCommand(parent: Command): void {
     // Concurrency control
     .option('--if-unmodified-since <date>', 'If-Unmodified-Since header (RFC 1123); server returns 412 if modified since')
     .option('--example', 'Print mode-aware example body and exit')
-    .action(async (id: string, opts: UpdateOpts, cmd: Command) => {
+    .action(async (id: string | undefined, opts: UpdateOpts, cmd: Command) => {
       try {
         const isUpload = !!(opts.cert || opts.key);
         const isSelfSigned = !!opts.selfSigned;
@@ -111,6 +110,8 @@ export function registerCertUpdateCommand(parent: Command): void {
           process.stdout.write(JSON.stringify(example, null, 2) + '\n');
           return;
         }
+
+        checkRequiredOption(id, 'id');
 
         const modeCount = [isUpload, isSelfSigned, isCaOnly, isFile].filter(Boolean).length;
         if (modeCount > 1) {

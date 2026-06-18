@@ -9,7 +9,7 @@ const synthesize_1 = require("../../../../schema/synthesize");
 const validate_1 = require("../../../../schema/validate");
 function registerAdminContactUpdateCommand(parent) {
     parent
-        .command('update <id>')
+        .command('update [id]')
         .description('Update a contact (PATCH)')
         .option('--file <path>', 'Request body as JSON (- for stdin)')
         .option('--example', 'Print an example request body and exit')
@@ -21,6 +21,7 @@ function registerAdminContactUpdateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
+            (0, util_1.checkRequiredOption)(id, 'id');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

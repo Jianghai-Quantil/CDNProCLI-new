@@ -6,6 +6,7 @@ const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
 const util_1 = require("../../util");
+const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
 function registerIpDetailsCommands(parent) {
     const ipCmd = parent
@@ -14,9 +15,16 @@ function registerIpDetailsCommands(parent) {
     ipCmd
         .command('lookup')
         .description('Look up details for a list of IP addresses (POST /ngadmin/ipDetails)')
-        .requiredOption('--file <path>', 'Request body as JSON (- for stdin)')
+        .option('--file <path>', 'Request body as JSON (- for stdin)')
+        .option('--example', 'Print an example request body and exit')
         .action(async (opts, cmd) => {
         try {
+            if (opts.example) {
+                const example = (0, synthesize_1.getExampleBody)('/ngadmin/ipDetails', 'post');
+                process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+                return;
+            }
+            (0, util_1.checkRequiredOption)(opts.file, '--file <path>');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

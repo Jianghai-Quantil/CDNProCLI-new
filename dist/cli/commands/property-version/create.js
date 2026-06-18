@@ -10,7 +10,7 @@ const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
 function registerPropertyVersionCreateCommand(parent) {
     parent
-        .command('create <propertyId>')
+        .command('create [propertyId]')
         .description('Create a new version of a property')
         .option('--file <path>', 'JSON body file (use - for stdin)')
         .option('--example', 'Print an example request body and exit')
@@ -22,6 +22,7 @@ function registerPropertyVersionCreateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, '--file <path>');
+            (0, util_1.checkRequiredOption)(propertyId, 'propertyId');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

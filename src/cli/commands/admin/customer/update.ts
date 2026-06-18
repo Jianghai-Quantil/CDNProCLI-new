@@ -13,11 +13,11 @@ interface UpdateOpts {
 
 export function registerAdminCustomerUpdateCommand(parent: Command): void {
   parent
-    .command('update <id>')
+    .command('update [id]')
     .description('Update a customer (PATCH)')
     .option('--file <path>', 'Request body as JSON (- for stdin)')
     .option('--example', 'Print an example request body and exit')
-    .action(async (id: string, opts: UpdateOpts, cmd: Command) => {
+    .action(async (id: string | undefined, opts: UpdateOpts, cmd: Command) => {
       try {
         if (opts.example) {
           const example = getExampleBody('/ngadmin/customers/{id}', 'patch');
@@ -26,6 +26,7 @@ export function registerAdminCustomerUpdateCommand(parent: Command): void {
         }
 
         checkRequiredOption(opts.file, "--file <path>");
+        checkRequiredOption(id, 'id');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

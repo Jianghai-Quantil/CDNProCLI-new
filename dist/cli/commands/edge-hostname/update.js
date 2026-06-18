@@ -9,7 +9,7 @@ const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
 function registerEdgeHostnameUpdateCommand(parent) {
     parent
-        .command('update <name>')
+        .command('update [name]')
         .description('Partially update an edge hostname (PATCH)')
         .option('--file <path>', 'Request body as JSON (- for stdin)')
         .option('--example', 'Print an example request body and exit')
@@ -22,6 +22,7 @@ function registerEdgeHostnameUpdateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
+            (0, util_1.checkRequiredOption)(name, 'name');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

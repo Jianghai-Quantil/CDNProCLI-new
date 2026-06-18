@@ -14,12 +14,12 @@ interface UpdateOpts {
 
 export function registerEdgeHostnameUpdateCommand(parent: Command): void {
   parent
-    .command('update <name>')
+    .command('update [name]')
     .description('Partially update an edge hostname (PATCH)')
     .option('--file <path>', 'Request body as JSON (- for stdin)')
     .option('--example', 'Print an example request body and exit')
     .option('--if-unmodified-since <date>', 'Optimistic concurrency guard (If-Unmodified-Since header)')
-    .action(async (name: string, opts: UpdateOpts, cmd: Command) => {
+    .action(async (name: string | undefined, opts: UpdateOpts, cmd: Command) => {
       try {
         if (opts.example) {
           const example = getExampleBody('/cdn/edgeHostnames/{edgeHostname}', 'patch');
@@ -28,6 +28,7 @@ export function registerEdgeHostnameUpdateCommand(parent: Command): void {
         }
 
         checkRequiredOption(opts.file, "--file <path>");
+        checkRequiredOption(name, 'name');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

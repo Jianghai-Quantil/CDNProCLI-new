@@ -43,7 +43,6 @@ const errors_2 = require("../../errors");
 const util_1 = require("../../util");
 const loader_1 = require("../../../schema/loader");
 const validate_1 = require("../../../schema/validate");
-const util_2 = require("../../util");
 function readPemFile(filePath, label) {
     try {
         return fs.readFileSync(filePath, 'utf8');
@@ -67,7 +66,7 @@ function encryptPrivateKey(pemContent, secretKey, dateStr) {
 }
 function registerCertUpdateCommand(parent) {
     parent
-        .command('update <id>')
+        .command('update [id]')
         .description('Add a new certificate version (PATCH)')
         .option('--name <name>', 'Friendly name for the certificate record')
         // Upload mode
@@ -111,6 +110,7 @@ function registerCertUpdateCommand(parent) {
                 process.stdout.write(JSON.stringify(example, null, 2) + '\n');
                 return;
             }
+            (0, util_1.checkRequiredOption)(id, 'id');
             const modeCount = [isUpload, isSelfSigned, isCaOnly, isFile].filter(Boolean).length;
             if (modeCount > 1) {
                 process.stderr.write('Error: --cert/--key, --self-signed, --ca-only, and --file are mutually exclusive\n');
@@ -127,7 +127,7 @@ function registerCertUpdateCommand(parent) {
                 body = (0, util_1.readBodyFile)(opts.file);
                 const validation = (0, validate_1.validateBody)('/cdn/certificates/{certificateID}', 'patch', body);
                 if (!validation.valid)
-                    (0, util_2.emitValidationError)(validation, 'cdnpro cert update --example', globals.output);
+                    (0, util_1.emitValidationError)(validation, 'cdnpro cert update --example', globals.output);
             }
             else if (isUpload) {
                 if (!opts.cert)
