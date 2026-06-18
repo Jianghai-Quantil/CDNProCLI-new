@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { print, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile } from '../../util';
 
@@ -104,7 +104,7 @@ export function registerTimeSeriesReportCommand(
       };
 
       const data = await client.report.post(path, { body }, reqOptions);
-      print(data, fmt);
+      printResult(data, fmt);
     } catch (err) {
       handleError(err);
     }

@@ -37,7 +37,7 @@ function registerAdminCustomerUpdateCommand(parent) {
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
             const data = await client.customers.update(id, body, reqOptions);
-            (0, output_1.print)(data, fmt);
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

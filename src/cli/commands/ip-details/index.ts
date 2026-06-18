@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { print, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError } from '../../util';
 import { validateBody } from '../../../schema/validate';
@@ -35,7 +35,7 @@ export function registerIpDetailsCommands(parent: Command): void {
         };
 
         const data = await client.geo.ipDetails(body, reqOptions);
-        print(data, fmt);
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.print = print;
 exports.printJson = printJson;
 exports.printJsonl = printJsonl;
+exports.printResult = printResult;
 exports.printTable = printTable;
 exports.buildMeta = buildMeta;
 const chalk_1 = __importDefault(require("chalk"));
@@ -59,6 +60,19 @@ function wrapEnvelope(data, meta) {
  * - If data is a single object, renders key/value pairs.
  * - Falls back to JSON if data cannot be rendered as a table.
  */
+/**
+ * Print a single result (non-list) in the requested format.
+ * Unlike {@link print}, this defaults to JSON in TTY mode because table
+ * format is only appropriate for list endpoints.
+ */
+function printResult(data, format, columns) {
+    const fmt = format ?? 'json';
+    switch (fmt) {
+        case 'json': return printJson(data);
+        case 'jsonl': return printJsonl(data);
+        case 'table': return printTable(data, columns);
+    }
+}
 function printTable(data, columns) {
     if (Array.isArray(data)) {
         if (data.length === 0) {

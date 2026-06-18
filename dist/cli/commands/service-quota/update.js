@@ -43,7 +43,7 @@ function registerServiceQuotaUpdateCommand(parent) {
                 ...(Object.keys(headers).length > 0 ? { headers } : {}),
             };
             const data = await client.serviceQuotas.update(id, body, reqOptions);
-            (0, output_1.print)(data, fmt);
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

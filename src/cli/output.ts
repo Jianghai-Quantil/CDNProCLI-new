@@ -63,6 +63,24 @@ function wrapEnvelope(
  * - If data is a single object, renders key/value pairs.
  * - Falls back to JSON if data cannot be rendered as a table.
  */
+/**
+ * Print a single result (non-list) in the requested format.
+ * Unlike {@link print}, this defaults to JSON in TTY mode because table
+ * format is only appropriate for list endpoints.
+ */
+export function printResult(
+  data: unknown,
+  format: OutputFormat | undefined,
+  columns?: string[],
+): void {
+  const fmt = format ?? 'json';
+  switch (fmt) {
+    case 'json':  return printJson(data);
+    case 'jsonl': return printJsonl(data);
+    case 'table': return printTable(data, columns);
+  }
+}
+
 export function printTable(data: unknown, columns?: string[]): void {
   if (Array.isArray(data)) {
     if (data.length === 0) {

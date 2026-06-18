@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printJson, printTable, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
 import { readBodyFile, emitValidationError, enrichWithLocationId, checkRequiredOption } from '../../util';
@@ -169,21 +169,11 @@ export function registerDeployCreateCommand(parent: Command): void {
             { timeout, pollInterval, outputFormat: fmt },
           );
 
-          const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-          if (effectiveFmt === 'table') {
-            printTable(finalTask);
-          } else {
-            printJson(finalTask);
-          }
+          printResult(finalTask, fmt);
           return;
         }
 
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(data);
-        } else {
-          printJson(data);
-        }
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

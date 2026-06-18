@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { print, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
@@ -47,7 +47,7 @@ export function registerSecretCreateCommand(parent: Command): void {
 
         const raw = await client.secrets.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
         const data = enrichWithLocationId(raw);
-        print(data, fmt);
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

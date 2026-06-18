@@ -22,6 +22,12 @@ export declare function printJsonl(data: unknown): void;
  * - If data is a single object, renders key/value pairs.
  * - Falls back to JSON if data cannot be rendered as a table.
  */
+/**
+ * Print a single result (non-list) in the requested format.
+ * Unlike {@link print}, this defaults to JSON in TTY mode because table
+ * format is only appropriate for list endpoints.
+ */
+export declare function printResult(data: unknown, format: OutputFormat | undefined, columns?: string[]): void;
 export declare function printTable(data: unknown, columns?: string[]): void;
 /**
  * Build a meta object from a list response.

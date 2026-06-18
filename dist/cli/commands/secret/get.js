@@ -20,7 +20,7 @@ function registerSecretGetCommand(parent) {
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
             const data = await client.secrets.get(id, reqOptions);
-            (0, output_1.print)(data, fmt);
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

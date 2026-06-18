@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printJson, printTable, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
@@ -47,12 +47,7 @@ export function registerPropertyVersionCreateCommand(parent: Command): void {
         const raw = await client.properties.createVersion(propertyId, body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
         const data = enrichWithLocationId(raw);
 
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(data);
-        } else {
-          printJson(data);
-        }
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

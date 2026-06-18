@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { print, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
@@ -52,7 +52,7 @@ export function registerWebhookUpdateCommand(parent: Command): void {
         };
 
         const data = await client.webhooks.update(id, body, reqOptions);
-        print(data, fmt);
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

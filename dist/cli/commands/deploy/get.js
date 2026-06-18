@@ -20,13 +20,7 @@ function registerDeployGetCommand(parent) {
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
             const data = await client.deploymentTasks.get(id, reqOptions);
-            const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-            if (effectiveFmt === 'table') {
-                (0, output_1.printTable)(data);
-            }
-            else {
-                (0, output_1.printJson)(data);
-            }
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

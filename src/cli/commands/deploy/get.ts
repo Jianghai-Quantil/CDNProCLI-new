@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printJson, printTable, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 
 export function registerDeployGetCommand(parent: Command): void {
@@ -21,12 +21,7 @@ export function registerDeployGetCommand(parent: Command): void {
         };
 
         const data = await client.deploymentTasks.get(id, reqOptions);
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(data);
-        } else {
-          printJson(data);
-        }
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printJson, printTable, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
 
@@ -45,12 +45,7 @@ export function registerCertDownloadCsrCommand(parent: Command): void {
           return;
         }
 
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(data);
-        } else {
-          printJson(data);
-        }
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

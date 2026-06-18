@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { print, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 
 export function registerPurgeGetCommand(parent: Command): void {
@@ -21,7 +21,7 @@ export function registerPurgeGetCommand(parent: Command): void {
         };
 
         const data = await client.purges.get(id, reqOptions);
-        print(data, fmt);
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

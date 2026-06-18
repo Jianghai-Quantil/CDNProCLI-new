@@ -35,7 +35,7 @@ function registerPropertyGetCommand(parent) {
             else {
                 data = rsp;
             }
-            const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+            const effectiveFmt = fmt ?? 'json';
             if (effectiveFmt === 'table') {
                 (0, output_1.printTable)(data);
             }

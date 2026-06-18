@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../../config';
 import { CDNProClient } from '../../../../client/CDNProClient';
-import { print, OutputFormat } from '../../../output';
+import { printResult, OutputFormat } from '../../../output';
 import { handleError } from '../../../errors';
 
 export function registerAdminApiAccountDeleteCommand(parent: Command): void {
@@ -20,7 +20,7 @@ export function registerAdminApiAccountDeleteCommand(parent: Command): void {
         };
 
         const data = await client.apiAccounts.delete(id, reqOptions);
-        print(data, fmt);
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

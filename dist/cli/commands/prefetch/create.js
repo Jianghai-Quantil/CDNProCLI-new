@@ -57,22 +57,10 @@ function registerPrefetchCreateCommand(parent) {
                     throw new errors_2.CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
                 }
                 const finalTask = await (0, wait_1.waitForTask)((id) => client.prefetches.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
-                const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-                if (effectiveFmt === 'table') {
-                    (0, output_1.printTable)(finalTask);
-                }
-                else {
-                    (0, output_1.printJson)(finalTask);
-                }
+                (0, output_1.printResult)(finalTask, fmt);
                 return;
             }
-            const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-            if (effectiveFmt === 'table') {
-                (0, output_1.printTable)(data);
-            }
-            else {
-                (0, output_1.printJson)(data);
-            }
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

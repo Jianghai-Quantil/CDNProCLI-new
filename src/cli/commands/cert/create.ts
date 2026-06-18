@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printJson, printTable, OutputFormat } from '../../output';
+import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
 import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
@@ -163,12 +163,7 @@ export function registerCertCreateCommand(parent: Command): void {
 
           const raw = await client.certificates.create(body, { ...reqOptions, raw: true, dateOverride: dateStr }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
           const data = enrichWithLocationId(raw);
-          const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-          if (effectiveFmt === 'table') {
-            printTable(data);
-          } else {
-            printJson(data);
-          }
+          printResult(data, fmt);
           return;
         } else if (isSelfSigned) {
           const alg = opts.selfSigned!.toUpperCase();
@@ -217,12 +212,7 @@ export function registerCertCreateCommand(parent: Command): void {
 
         const raw = await client.certificates.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
         const data = enrichWithLocationId(raw);
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(data);
-        } else {
-          printJson(data);
-        }
+        printResult(data, fmt);
       } catch (err) {
         handleError(err);
       }

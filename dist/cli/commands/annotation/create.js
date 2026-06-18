@@ -39,7 +39,7 @@ function registerAnnotationCreateCommand(parent) {
             };
             const raw = await client.annotations.create(body, { ...reqOptions, raw: true });
             const data = (0, util_1.enrichWithLocationId)(raw);
-            (0, output_1.print)(data, fmt);
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

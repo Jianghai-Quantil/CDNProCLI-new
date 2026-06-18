@@ -39,13 +39,7 @@ function registerPropertyCreateCommand(parent) {
             };
             const raw = await client.properties.create(body, { ...reqOptions, raw: true });
             const data = (0, util_1.enrichWithLocationId)(raw);
-            const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-            if (effectiveFmt === 'table') {
-                (0, output_1.printTable)(data);
-            }
-            else {
-                (0, output_1.printJson)(data);
-            }
+            (0, output_1.printResult)(data, fmt);
         }
         catch (err) {
             (0, errors_1.handleError)(err);

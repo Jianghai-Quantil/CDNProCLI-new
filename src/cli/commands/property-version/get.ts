@@ -42,7 +42,7 @@ export function registerPropertyVersionGetCommand(parent: Command): void {
           data = rsp;
         }
 
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+        const effectiveFmt = fmt ?? 'json';
         if (effectiveFmt === 'table') {
           printTable(data);
         } else {
