@@ -3,7 +3,7 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printCreateSuccess } from '../../output';
 import { handleError } from '../../errors';
-import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId, checkRequiredOption } from "../../util";
 import { getExampleBody } from '../../../schema/synthesize';
 import { validateBody } from '../../../schema/validate';
 
@@ -26,10 +26,7 @@ export function registerLogAggregationPointCreateCommand(parent: Command): void 
           return;
         }
 
-        if (!opts.file) {
-          process.stderr.write("Error: required option '--file <path>' not specified\n");
-          process.exit(1);
-        }
+        checkRequiredOption(opts.file, "--file <path>");
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

@@ -6,6 +6,7 @@ const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
 const util_1 = require("../../util");
+const synthesize_1 = require("../../../schema/synthesize");
 const time_series_1 = require("./time-series");
 const summary_1 = require("./summary");
 function registerReportCommands(parent) {
@@ -44,12 +45,20 @@ function registerReportCommands(parent) {
     report
         .command('logs')
         .description('Request log download links')
-        .requiredOption('--from <date>', 'Start date (RFC 3339 UTC)')
-        .requiredOption('--to <date>', 'End date (RFC 3339 UTC)')
+        .option('--from <date>', 'Start date (RFC 3339 UTC)')
+        .option('--to <date>', 'End date (RFC 3339 UTC)')
         .option('--hostname <h>', 'Filter by hostname; repeatable', (v, prev) => [...prev, v], [])
         .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
+        .option('--example', 'Print an example request body and exit')
         .action(async (opts, cmd) => {
         try {
+            if (opts.example) {
+                const example = (0, synthesize_1.getExampleBody)('/cdn/report/logDownload', 'post');
+                process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+                return;
+            }
+            (0, util_1.checkRequiredOption)(opts.from, '--from <date>');
+            (0, util_1.checkRequiredOption)(opts.to, '--to <date>');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

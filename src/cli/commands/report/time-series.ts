@@ -3,12 +3,13 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
-import { readBodyFile } from '../../util';
+import { readBodyFile, checkRequiredOption } from '../../util';
+import { getExampleBody } from '../../../schema/synthesize';
 
 interface TimeSeriesOpts {
-  from: string;
-  to: string;
-  type: string;
+  from?: string;
+  to?: string;
+  type?: string;
   scheme?: string;
   hostname?: string[];
   property?: string[];
@@ -16,6 +17,7 @@ interface TimeSeriesOpts {
   serverGroup?: string[];
   file?: string;
   reportRange?: string;
+  example?: boolean;
 }
 
 /**
@@ -37,10 +39,11 @@ export function registerTimeSeriesReportCommand(
   const cmd = parent
     .command(name)
     .description(desc)
-    .requiredOption('--from <date>', 'Start date (RFC 3339 UTC)')
-    .requiredOption('--to <date>', 'End date (RFC 3339 UTC)')
-    .requiredOption('--type <granularity>', 'Granularity: fiveminutes | hourly | daily | monthly')
-    .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)');
+    .option('--from <date>', 'Start date (RFC 3339 UTC)')
+    .option('--to <date>', 'End date (RFC 3339 UTC)')
+    .option('--type <granularity>', 'Granularity: fiveminutes | hourly | daily | monthly')
+    .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
+    .option('--example', 'Print an example request body and exit');
 
   if (!noScheme) {
     cmd.option('--scheme <scheme>', 'Traffic type: http | https | all [default: all]');
@@ -67,6 +70,16 @@ export function registerTimeSeriesReportCommand(
 
   cmd.action(async (opts: TimeSeriesOpts & { edgeHostname?: string[] }, cmdObj: Command) => {
     try {
+      if (opts.example) {
+        const example = getExampleBody(path, 'post');
+        process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+        return;
+      }
+
+      checkRequiredOption(opts.from, '--from <date>');
+      checkRequiredOption(opts.to, '--to <date>');
+      checkRequiredOption(opts.type, '--type <granularity>');
+
       const globals = cmdObj.optsWithGlobals<GlobalOptions>();
       const serverInfo = await resolveCredentials(globals);
       const client = new CDNProClient(serverInfo);

@@ -5,8 +5,8 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
-const errors_2 = require("../../errors");
 const util_1 = require("../../util");
+const synthesize_1 = require("../../../schema/synthesize");
 /**
  * Register a summary report subcommand (no --type, no --report-range, adds --group-by).
  */
@@ -14,9 +14,10 @@ function registerSummaryReportCommand(parent, name, desc, path, { noScheme = fal
     const cmd = parent
         .command(name)
         .description(desc)
-        .requiredOption('--from <date>', 'Start date (RFC 3339 UTC)')
-        .requiredOption('--to <date>', 'End date (RFC 3339 UTC)')
-        .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)');
+        .option('--from <date>', 'Start date (RFC 3339 UTC)')
+        .option('--to <date>', 'End date (RFC 3339 UTC)')
+        .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
+        .option('--example', 'Print an example request body and exit');
     if (!noScheme) {
         cmd.option('--scheme <scheme>', 'Traffic type: http | https | all [default: all]');
     }
@@ -33,13 +34,17 @@ function registerSummaryReportCommand(parent, name, desc, path, { noScheme = fal
     }
     cmd.action(async (opts, cmdObj) => {
         try {
+            if (opts.example) {
+                const example = (0, synthesize_1.getExampleBody)(path, 'post');
+                process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+                return;
+            }
+            (0, util_1.checkRequiredOption)(opts.from, '--from <date>');
+            (0, util_1.checkRequiredOption)(opts.to, '--to <date>');
             const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            if (!opts.from || !opts.to) {
-                throw new errors_2.CliError('VALIDATION', '--from and --to are required');
-            }
             let body;
             const query = {};
             if (opts.file) {

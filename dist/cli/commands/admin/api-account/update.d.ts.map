@@ -1,1 +1,1 @@
-{"version":3,"file":"update.d.ts","sourceRoot":"","sources":["../../../../../src/cli/commands/admin/api-account/update.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAapC,wBAAgB,oCAAoC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAyC1E"}
+{"version":3,"file":"update.d.ts","sourceRoot":"","sources":["../../../../../src/cli/commands/admin/api-account/update.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAapC,wBAAgB,oCAAoC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAsC1E"}

@@ -21,10 +21,7 @@ function registerPropertyVersionCreateCommand(parent) {
                 process.stdout.write(JSON.stringify(example, null, 2) + '\n');
                 return;
             }
-            if (!opts.file) {
-                process.stderr.write('Error: --file <path> is required (use - for stdin)\n');
-                process.exit(1);
-            }
+            (0, util_1.checkRequiredOption)(opts.file, '--file <path>');
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

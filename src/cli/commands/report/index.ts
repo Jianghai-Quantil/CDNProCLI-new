@@ -3,7 +3,8 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
-import { readBodyFile } from '../../util';
+import { readBodyFile, checkRequiredOption } from '../../util';
+import { getExampleBody } from '../../../schema/synthesize';
 import { registerTimeSeriesReportCommand } from './time-series';
 import { registerSummaryReportCommand } from './summary';
 
@@ -60,12 +61,22 @@ export function registerReportCommands(parent: Command): void {
   report
     .command('logs')
     .description('Request log download links')
-    .requiredOption('--from <date>', 'Start date (RFC 3339 UTC)')
-    .requiredOption('--to <date>', 'End date (RFC 3339 UTC)')
+    .option('--from <date>', 'Start date (RFC 3339 UTC)')
+    .option('--to <date>', 'End date (RFC 3339 UTC)')
     .option('--hostname <h>', 'Filter by hostname; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
     .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
-    .action(async (opts: { from: string; to: string; hostname?: string[]; file?: string }, cmd: Command) => {
+    .option('--example', 'Print an example request body and exit')
+    .action(async (opts: { from?: string; to?: string; hostname?: string[]; file?: string; example?: boolean }, cmd: Command) => {
       try {
+        if (opts.example) {
+          const example = getExampleBody('/cdn/report/logDownload', 'post');
+          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+          return;
+        }
+
+        checkRequiredOption(opts.from, '--from <date>');
+        checkRequiredOption(opts.to, '--to <date>');
+
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);

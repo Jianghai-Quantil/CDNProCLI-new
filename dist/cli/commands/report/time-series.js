@@ -6,6 +6,7 @@ const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
 const util_1 = require("../../util");
+const synthesize_1 = require("../../../schema/synthesize");
 /**
  * Register a time-series report subcommand.
  *
@@ -19,10 +20,11 @@ function registerTimeSeriesReportCommand(parent, name, desc, path, { noScheme = 
     const cmd = parent
         .command(name)
         .description(desc)
-        .requiredOption('--from <date>', 'Start date (RFC 3339 UTC)')
-        .requiredOption('--to <date>', 'End date (RFC 3339 UTC)')
-        .requiredOption('--type <granularity>', 'Granularity: fiveminutes | hourly | daily | monthly')
-        .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)');
+        .option('--from <date>', 'Start date (RFC 3339 UTC)')
+        .option('--to <date>', 'End date (RFC 3339 UTC)')
+        .option('--type <granularity>', 'Granularity: fiveminutes | hourly | daily | monthly')
+        .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
+        .option('--example', 'Print an example request body and exit');
     if (!noScheme) {
         cmd.option('--scheme <scheme>', 'Traffic type: http | https | all [default: all]');
     }
@@ -41,6 +43,14 @@ function registerTimeSeriesReportCommand(parent, name, desc, path, { noScheme = 
     }
     cmd.action(async (opts, cmdObj) => {
         try {
+            if (opts.example) {
+                const example = (0, synthesize_1.getExampleBody)(path, 'post');
+                process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+                return;
+            }
+            (0, util_1.checkRequiredOption)(opts.from, '--from <date>');
+            (0, util_1.checkRequiredOption)(opts.to, '--to <date>');
+            (0, util_1.checkRequiredOption)(opts.type, '--type <granularity>');
             const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);

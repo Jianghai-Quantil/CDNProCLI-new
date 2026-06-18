@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { handleError } from '../../errors';
-import { readBodyFile, emitValidationError } from '../../util';
+import { readBodyFile, emitValidationError, checkRequiredOption } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
 import { validateBody } from '../../../schema/validate';
 
@@ -27,10 +27,7 @@ export function registerPropertyUpdateCommand(parent: Command): void {
           return;
         }
 
-        if (!opts.file) {
-          process.stderr.write('Error: --file <path> is required (use - for stdin)\n');
-          process.exit(1);
-        }
+        checkRequiredOption(opts.file, '--file <path>');
 
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
