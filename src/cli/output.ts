@@ -81,6 +81,26 @@ export function printResult(
   }
 }
 
+/**
+ * Print a success message for resource creation.
+ * In TTY mode (no explicit format): "Created new <label>: \"<id>\"." to stderr.
+ * In pipe / explicit format mode: {"success":true,"<jsonKey>":"<id>"} to stdout.
+ */
+export function printCreateSuccess(
+  label: string,
+  jsonKey: string,
+  id: string,
+  format?: string,
+): void {
+  if (!process.stdout.isTTY || format) {
+    const result: Record<string, unknown> = { success: true };
+    result[jsonKey] = id;
+    process.stdout.write(JSON.stringify(result) + '\n');
+  } else {
+    process.stderr.write(`Created new ${label}: "${id}".\n`);
+  }
+}
+
 export function printTable(data: unknown, columns?: string[]): void {
   if (Array.isArray(data)) {
     if (data.length === 0) {

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../output';
+import { printCreateSuccess, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
 import { readBodyFile, emitValidationError, enrichWithLocationId, checkRequiredOption } from '../../util';
@@ -149,6 +149,7 @@ export function registerDeployCreateCommand(parent: Command): void {
 
         const raw = await client.deploymentTasks.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
         const data = enrichWithLocationId(raw);
+        const id = data['id'] as string;
 
         if (opts.wait) {
           const taskId = data['id'] as string | undefined;
@@ -163,17 +164,17 @@ export function registerDeployCreateCommand(parent: Command): void {
             throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
           }
 
-          const finalTask = await waitForTask(
+          await waitForTask(
             (id) => client.deploymentTasks.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
             String(taskId),
             { timeout, pollInterval, outputFormat: fmt },
           );
 
-          printResult(finalTask, fmt);
+          printCreateSuccess('Deployment', 'deploymentId', String(taskId), fmt);
           return;
         }
 
-        printResult(data, fmt);
+        printCreateSuccess('Deployment', 'deploymentId', id, fmt);
       } catch (err) {
         handleError(err);
       }

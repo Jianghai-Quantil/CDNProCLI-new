@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
-import { printResult, OutputFormat } from '../../output';
+import { printCreateSuccess } from '../../output';
 import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
@@ -34,7 +34,6 @@ export function registerPropertyVersionCreateCommand(parent: Command): void {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);
         const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
         const body = readBodyFile(opts.file);
         const validation = validateBody('/cdn/properties/{propertyID}/versions', 'post', body);
         if (!validation.valid) emitValidationError(validation, 'cdnpro property-version create --example', globals.output);
@@ -46,8 +45,9 @@ export function registerPropertyVersionCreateCommand(parent: Command): void {
 
         const raw = await client.properties.createVersion(propertyId, body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
         const data = enrichWithLocationId(raw);
+        const id = data['id'] as string;
 
-        printResult(data, fmt);
+        printCreateSuccess('Property Version', 'propertyVersionId', id, globals.output);
       } catch (err) {
         handleError(err);
       }
