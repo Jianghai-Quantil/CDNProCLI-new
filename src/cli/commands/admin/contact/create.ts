@@ -3,7 +3,7 @@ import { resolveCredentials, GlobalOptions } from '../../../config';
 import { CDNProClient } from '../../../../client/CDNProClient';
 import { print, OutputFormat } from '../../../output';
 import { handleError } from '../../../errors';
-import { readBodyFile, emitValidationError } from '../../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../../util';
 import { getExampleBody } from '../../../../schema/synthesize';
 import { validateBody } from '../../../../schema/validate';
 
@@ -44,7 +44,8 @@ export function registerAdminContactCreateCommand(parent: Command): void {
           ...(globals.verbose ? { verbose: globals.verbose } : {}),
         };
 
-        const data = await client.contacts.create(body, reqOptions);
+        const raw = await client.contacts.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
+        const data = enrichWithLocationId(raw);
         print(data, fmt);
       } catch (err) {
         handleError(err);

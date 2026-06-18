@@ -69,3 +69,22 @@ export function emitValidationError(
 
   throw new CliError('VALIDATION', 'Invalid request body', undefined, true);
 }
+
+/**
+ * Given a raw API response, extract the resource ID from the Location header
+ * and enrich the response body with it.  Many CDN Pro POST endpoints return
+ * the new resource's URL in the Location header rather than in the body.
+ */
+export function enrichWithLocationId(
+  raw: { obj: unknown; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } },
+): Record<string, unknown> {
+  const data = (raw.obj ?? {}) as Record<string, unknown>;
+  if (data['id'] !== undefined && data['id'] !== null) return data;
+  const location = raw.ctx._res.headers['location'] as string | undefined;
+  if (!location) return data;
+  const id = location.split('/').pop();
+  if (id) {
+    return { ...data, id };
+  }
+  return data;
+}

@@ -4,7 +4,7 @@ import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
-import { readBodyFile, emitValidationError } from '../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
 import { waitForTask } from '../../wait';
 import { getExampleBody } from '../../../schema/synthesize';
 import { validateBody } from '../../../schema/validate';
@@ -53,13 +53,10 @@ export function registerValidationCreateCommand(parent: Command): void {
         };
 
         const raw = await client.validations.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
-        const data = raw.obj ?? {};
+        const data = enrichWithLocationId(raw);
 
         if (opts.wait) {
-          const location = raw.ctx._res.headers['location'] as string | undefined;
-          const taskId = location
-            ? location.split('/').pop()
-            : ((data['id'] ?? data['taskId']) as string | undefined);
+          const taskId = data['id'] as string | undefined;
           if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
 
           const timeout = parseInt(opts.timeout ?? '300', 10);

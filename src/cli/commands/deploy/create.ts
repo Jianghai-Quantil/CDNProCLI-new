@@ -4,11 +4,10 @@ import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
-import { readBodyFile } from '../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
 import { waitForTask } from '../../wait';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { validateBody } from '../../../schema/validate';
-import { emitValidationError } from '../../util';
 
 interface CreateOpts {
   target?: string;
@@ -50,7 +49,7 @@ export function registerDeployCreateCommand(parent: Command): void {
   parent
     .command('create')
     .description('Create a deployment task')
-    .requiredOption('--target <env>', 'Deployment environment: staging | production')
+    .option('--target <env>', 'Deployment environment: staging | production')
     // Action flags
     .option('--deploy-property <id@version>', 'Deploy a property at the specified version; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
     .option('--remove-property <id>', 'Remove a property from the target environment; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
@@ -89,6 +88,13 @@ export function registerDeployCreateCommand(parent: Command): void {
         const fmt = globals.output as OutputFormat | undefined;
 
         let body: unknown;
+
+        if (!opts.target) {
+          throw new CliError(
+            'VALIDATION',
+            'Required option --target <env> not specified',
+          );
+        }
 
         if (opts.file) {
           body = readBodyFile(opts.file);
@@ -147,14 +153,10 @@ export function registerDeployCreateCommand(parent: Command): void {
         };
 
         const raw = await client.deploymentTasks.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
-        const data = raw.obj ?? {};
+        const data = enrichWithLocationId(raw);
 
         if (opts.wait) {
-          // The API returns the new resource URL in the Location header, not the body.
-          const location = raw.ctx._res.headers['location'] as string | undefined;
-          const taskId = location
-            ? location.split('/').pop()
-            : ((data['id'] ?? data['taskId']) as string | undefined);
+          const taskId = data['id'] as string | undefined;
           if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
 
           const timeout = parseInt(opts.timeout ?? '600', 10);

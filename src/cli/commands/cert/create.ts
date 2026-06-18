@@ -6,10 +6,9 @@ import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
 import { CliError } from '../../errors';
-import { readBodyFile } from '../../util';
+import { readBodyFile, emitValidationError, enrichWithLocationId } from '../../util';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { validateBody } from '../../../schema/validate';
-import { emitValidationError } from '../../util';
 
 interface CreateOpts {
   name?: string;
@@ -162,7 +161,8 @@ export function registerCertCreateCommand(parent: Command): void {
             dateOverride: dateStr,
           };
 
-          const data = await client.certificates.create(body, reqOptions);
+          const raw = await client.certificates.create(body, { ...reqOptions, raw: true, dateOverride: dateStr }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
+          const data = enrichWithLocationId(raw);
           const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
           if (effectiveFmt === 'table') {
             printTable(data);
@@ -215,7 +215,8 @@ export function registerCertCreateCommand(parent: Command): void {
           ...(globals.verbose ? { verbose: globals.verbose } : {}),
         };
 
-        const data = await client.certificates.create(body, reqOptions);
+        const raw = await client.certificates.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
+        const data = enrichWithLocationId(raw);
         const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
         if (effectiveFmt === 'table') {
           printTable(data);
