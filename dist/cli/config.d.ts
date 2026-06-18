@@ -33,6 +33,10 @@ export declare function deleteProfile(name: string): Promise<void>;
 export declare function listProfiles(): Record<string, StoredProfile>;
 export declare function getDefaultProfile(): string;
 export declare function setDefaultProfile(name: string): void;
-/** Prompt for input. Pass silent=true to hide typed characters (for secret keys). */
-export declare function promptInput(question: string, silent?: boolean): Promise<string>;
+/**
+ * Prompt for input.
+ * - silent=true  : mask typed characters with '*' (for secret keys)
+ * - defaultValue : shown as [default] in the prompt; returned when the user presses Enter with no input
+ */
+export declare function promptInput(question: string, silent?: boolean, defaultValue?: string): Promise<string>;
 //# sourceMappingURL=config.d.ts.map

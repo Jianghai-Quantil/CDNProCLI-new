@@ -52,10 +52,14 @@ export function registerValidationCreateCommand(parent: Command): void {
           ...(globals.verbose ? { verbose: globals.verbose } : {}),
         };
 
-        const data = await client.validations.create(body, reqOptions) as Record<string, unknown>;
+        const raw = await client.validations.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
+        const data = raw.obj ?? {};
 
         if (opts.wait) {
-          const taskId = (data['id'] ?? data['taskId']) as string | undefined;
+          const location = raw.ctx._res.headers['location'] as string | undefined;
+          const taskId = location
+            ? location.split('/').pop()
+            : ((data['id'] ?? data['taskId']) as string | undefined);
           if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
 
           const timeout = parseInt(opts.timeout ?? '300', 10);

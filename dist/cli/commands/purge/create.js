@@ -95,9 +95,13 @@ function registerPurgeCreateCommand(parent) {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
             };
-            const data = await client.purges.create(body, reqOptions);
+            const raw = await client.purges.create(body, { ...reqOptions, raw: true });
+            const data = raw.obj ?? {};
             if (opts.wait) {
-                const taskId = (data['id'] ?? data['taskId']);
+                const location = raw.ctx._res.headers['location'];
+                const taskId = location
+                    ? location.split('/').pop()
+                    : (data['id'] ?? data['taskId']);
                 if (!taskId)
                     throw new errors_2.CliError('ERROR', 'Server did not return a task ID; cannot poll');
                 const timeout = parseInt(opts.timeout ?? '600', 10);

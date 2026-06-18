@@ -146,10 +146,15 @@ export function registerDeployCreateCommand(parent: Command): void {
           ...(Object.keys(bypassHeaders).length > 0 ? { headers: bypassHeaders } : {}),
         };
 
-        const data = await client.deploymentTasks.create(body, reqOptions) as Record<string, unknown>;
+        const raw = await client.deploymentTasks.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
+        const data = raw.obj ?? {};
 
         if (opts.wait) {
-          const taskId = (data['id'] ?? data['taskId']) as string | undefined;
+          // The API returns the new resource URL in the Location header, not the body.
+          const location = raw.ctx._res.headers['location'] as string | undefined;
+          const taskId = location
+            ? location.split('/').pop()
+            : ((data['id'] ?? data['taskId']) as string | undefined);
           if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
 
           const timeout = parseInt(opts.timeout ?? '600', 10);

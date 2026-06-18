@@ -20,9 +20,9 @@ function registerAuthCommands(parent) {
         .action(async (opts) => {
         try {
             console.log(`Configuring profile: ${chalk_1.default.bold(opts.profile)}\n`);
-            const host = await (0, config_1.promptInput)('API host (e.g. ngapi.cdnetworks.com): ');
-            const user = await (0, config_1.promptInput)('Username: ');
-            const secretKey = await (0, config_1.promptInput)('Secret key: ', true);
+            const host = await (0, config_1.promptInput)('API host', false, 'ngapi.cdnetworks.com');
+            const user = await (0, config_1.promptInput)('Username');
+            const secretKey = await (0, config_1.promptInput)('Secret key', true);
             if (!host.trim() || !user.trim() || !secretKey.trim()) {
                 throw new errors_1.CliError('CONFIG_ERROR', 'Host, username, and secret key are all required.');
             }

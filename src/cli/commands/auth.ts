@@ -27,9 +27,9 @@ export function registerAuthCommands(parent: Command): void {
       try {
         console.log(`Configuring profile: ${chalk.bold(opts.profile)}\n`);
 
-        const host = await promptInput('API host (e.g. ngapi.cdnetworks.com): ');
-        const user = await promptInput('Username: ');
-        const secretKey = await promptInput('Secret key: ', true);
+        const host = await promptInput('API host', false, 'ngapi.cdnetworks.com');
+        const user = await promptInput('Username');
+        const secretKey = await promptInput('Secret key', true);
 
         if (!host.trim() || !user.trim() || !secretKey.trim()) {
           throw new CliError('CONFIG_ERROR', 'Host, username, and secret key are all required.');

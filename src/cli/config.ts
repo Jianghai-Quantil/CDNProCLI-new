@@ -136,35 +136,70 @@ export function setDefaultProfile(name: string): void {
   store.set('defaultProfile', name);
 }
 
-/** Prompt for input. Pass silent=true to hide typed characters (for secret keys). */
-export function promptInput(question: string, silent = false): Promise<string> {
+/**
+ * Prompt for input.
+ * - silent=true  : mask typed characters with '*' (for secret keys)
+ * - defaultValue : shown as [default] in the prompt; returned when the user presses Enter with no input
+ */
+export function promptInput(question: string, silent = false, defaultValue?: string): Promise<string> {
+  const displayQuestion = defaultValue
+    ? `${question} [${defaultValue}]: `
+    : `${question}: `;
+
   return new Promise((resolve) => {
     if (silent) {
-      // Write the question manually; suppress readline's echo by patching stdout.write.
-      process.stdout.write(question);
+      process.stdout.write(displayQuestion);
 
-      const rl = readline.createInterface({ input: process.stdin, terminal: false });
-      const origWrite = process.stdout.write.bind(process.stdout);
-      // Suppress echo of the typed characters
-      process.stdout.write = () => true;
+      const isTTY = (process.stdin as NodeJS.ReadStream).isTTY;
 
-      rl.once('line', (line) => {
-        process.stdout.write = origWrite;
-        process.stdout.write('\n');
-        rl.close();
-        resolve(line);
-      });
-      rl.once('close', () => {
-        process.stdout.write = origWrite;
-      });
+      if (isTTY) {
+        // TTY mode: intercept keypresses and echo '*' for each character typed.
+        // Resume stdin in case a prior readline.createInterface call paused it.
+        process.stdin.resume();
+        readline.emitKeypressEvents(process.stdin);
+        (process.stdin as NodeJS.ReadStream).setRawMode!(true);
+
+        let answer = '';
+
+        const onKeypress = (_char: string, key: readline.Key) => {
+          if (key.name === 'return' || key.name === 'enter') {
+            (process.stdin as NodeJS.ReadStream).setRawMode!(false);
+            process.stdin.removeListener('keypress', onKeypress);
+            process.stdin.pause();
+            process.stdout.write('\n');
+            resolve(answer);
+          } else if (key.name === 'backspace') {
+            if (answer.length > 0) {
+              answer = answer.slice(0, -1);
+              process.stdout.write('\b \b');
+            }
+          } else if (key.ctrl && key.name === 'c') {
+            (process.stdin as NodeJS.ReadStream).setRawMode!(false);
+            process.exit(0);
+          } else if (key.sequence && !key.ctrl && !key.meta && key.sequence.length === 1) {
+            answer += key.sequence;
+            process.stdout.write('*');
+          }
+        };
+
+        process.stdin.on('keypress', onKeypress);
+      } else {
+        // Non-TTY (piped input): read silently without echo.
+        const rl = readline.createInterface({ input: process.stdin, terminal: false });
+        rl.once('line', (line) => {
+          process.stdout.write('\n');
+          rl.close();
+          resolve(line);
+        });
+      }
     } else {
       const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
       });
-      rl.question(question, (answer) => {
+      rl.question(displayQuestion, (answer) => {
         rl.close();
-        resolve(answer);
+        resolve(answer.trim() ? answer : (defaultValue ?? answer));
       });
     }
   });

@@ -1,1 +1,1 @@
-{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/purge/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AA6BpC,wBAAgB,0BAA0B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAmIhE"}
+{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/purge/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AA6BpC,wBAAgB,0BAA0B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAuIhE"}

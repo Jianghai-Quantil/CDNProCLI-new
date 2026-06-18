@@ -192,8 +192,6 @@ cdnpro hostname list [--search <keyword>]
 cdnpro hostname get <hostname>
 ```
 
-### Hostname History
-
 ```bash
 cdnpro hostname-history list [--search <keyword>] [--from <date>] [--to <date>] [--target <staging|production|all>]
 cdnpro hostname-history get <hostname> [--from <date>] [--to <date>] [--target <staging|production|all>]
