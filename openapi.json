@@ -2568,7 +2568,7 @@
                     "value": {
                       "ownerCustomerId": 123456,
                       "configs": {
-                        "edgeHostname": "rtycno8odxuwycaror3f.qtlcdn.com",
+                        "edgeHostname": "rtycno8odxuwycaror3f.qtlgslb.com",
                         "hasBeian": false,
                         "clientZones": [
                           {
@@ -2595,7 +2595,7 @@
                           "time": "2023-09-01T23:54:43Z",
                           "apiRequestId": "b46c1a060706c4e9",
                           "configuration": {
-                            "edgeHostname": "rtycno8odxuwycaror3f.qtlcdn.com",
+                            "edgeHostname": "rtycno8odxuwycaror3f.qtlgslb.com",
                             "hasBeian": false,
                             "clientZones": [
                               {
@@ -3138,7 +3138,7 @@
               "examples": {
                 "example-1": {
                   "value": {
-                    "edgeHostname": "test.t1573515322742.qtlcdn.com",
+                    "edgeHostname": "test.t1573515322742.qtlgslb.com",
                     "clientZones": [
                       {
                         "region": "all",
@@ -6114,10 +6114,10 @@
               "examples": {
                 "Example": {
                   "value": {
-                    "edgeHostname": "testabcd.123.qtlcdn.com",
+                    "edgeHostname": "testabcd.123.qtlgslb.com",
                     "clientZones": [
                       {
-                        "region": "eu",
+                        "region": "all",
                         "isp": "all",
                         "action": {
                           "type": "deliver",
@@ -6230,7 +6230,7 @@
                       "count": 2,
                       "edgeHostnames": [
                         {
-                          "edgeHostname": "ekgggzcmswu4vc.qtlcdn.com",
+                          "edgeHostname": "ekgggzcmswu4vc.qtlgslb.com",
                           "description": "my edge hostname",
                           "hasBeian": false,
                           "highestServerGroup": "standard",
@@ -6238,7 +6238,7 @@
                           "creationTime": "2019-12-04T19:44:12Z"
                         },
                         {
-                          "edgeHostname": "cdn.admtl.com.qtlcdn.com",
+                          "edgeHostname": "cdn.admtl.com.qtlgslb.com",
                           "description": "",
                           "hasBeian": false,
                           "highestServerGroup": "standard",

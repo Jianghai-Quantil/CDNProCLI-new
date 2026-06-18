@@ -22,7 +22,7 @@ function registerStagingServerCommands(parent) {
             const { items, meta } = (0, output_1.buildMeta)(data);
             const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
             if (effectiveFmt === 'table') {
-                (0, output_1.printTable)(items, ['ip', 'location', 'serverGroup']);
+                (0, output_1.printTable)(items);
             }
             else if (effectiveFmt === 'jsonl') {
                 (0, output_1.printJsonl)(items);

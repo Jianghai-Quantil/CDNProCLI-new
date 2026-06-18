@@ -24,7 +24,7 @@ export function registerStagingServerCommands(parent: Command): void {
 
         const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
         if (effectiveFmt === 'table') {
-          printTable(items, ['ip', 'location', 'serverGroup']);
+          printTable(items);
         } else if (effectiveFmt === 'jsonl') {
           printJsonl(items);
         } else {
