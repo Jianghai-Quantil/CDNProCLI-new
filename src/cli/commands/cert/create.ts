@@ -23,7 +23,7 @@ export const CERT_CREATE_OPTIONS: OptionMapping[] = [
   { flag: '--key <file>',        target: 'body', param: 'newVersion.privateKey',        description: 'PEM private key file (upload mode)' },
   { flag: '--ca <file>',         target: 'body', param: 'newVersion.chainCert',         description: 'PEM CA chain file (upload or CA-only mode)' },
   // Self-signed mode
-  { flag: '--self-signed <alg>', target: 'body', param: 'newVersion.privateKey',        description: 'Algorithm: RSA2048 | ECC256 (server generates cert+key)' },
+  { flag: '--self-signed <alg>', target: 'cli-only', param: null,                     description: 'Algorithm: RSA2048 | ECC256 (server generates cert+key)' },
   { flag: '--common-name <cn>',  target: 'body', param: 'newVersion.identificationInfo.commonName',          description: 'CN for the certificate (required with --self-signed)' },
   { flag: '--san <hostname>',    target: 'body', param: 'newVersion.identificationInfo.subjectAlternativeNames', description: 'Subject Alternative Name; repeatable', repeatable: true },
   { flag: '--country <CC>',      target: 'body', param: 'newVersion.identificationInfo.country',             description: '2-letter ISO-3166 country code' },
