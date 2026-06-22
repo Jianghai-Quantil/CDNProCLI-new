@@ -6,7 +6,7 @@ A TypeScript-based command-line interface and programmable library for the [CDN 
 
 - Full coverage of CDN Pro REST APIs: properties, certificates, deployments, edge hostnames, cache operations, reports, and more
 - Profile-based credential management (multiple environments/accounts)
-- Auto-detects output format: human-readable tables in interactive terminals, JSON when piped
+- Auto-detects output format: human-readable tables in interactive terminals for `list` commands, JSON when piped
 - `--wait` flag on async operations (deploys, validations, purges, prefetches) polls until completion
 - OpenAPI schema introspection via `cdnpro schema` — useful for AI agents and tooling
 - Shell completion for bash, zsh, fish, and PowerShell
@@ -91,8 +91,8 @@ These options are available on every command:
 
 | Format | When used | Description |
 |---|---|---|
-| `table` | Interactive TTY (default) | Human-readable ASCII table |
-| `json` | Piped/non-TTY (default) | Single JSON envelope |
+| `table` | `list` commands in interactive TTY (default) | Human-readable ASCII table |
+| `json` | Piped/non-TTY (default), and all non-list commands | Single JSON envelope |
 | `jsonl` | Explicit `--output jsonl` | One JSON object per line (streaming) |
 
 ## Commands
@@ -130,11 +130,60 @@ cdnpro cert list [--search <keyword>] [--target <all|staging|production>]
                  [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
                  [--report-range <scope>] [--all]
 cdnpro cert get <id>
-cdnpro cert create [--file <path>]
-cdnpro cert update <id> [--file <path>]
+cdnpro cert create [--name <name>] [--file <path>] [--example]
+                   # Upload mode:
+                   --cert <file> --key <file> [--ca <file>] [--comments <text>]
+                   # Self-signed mode:
+                   --self-signed <RSA2048|ECC256> --common-name <cn>
+                     [--san <hostname>...] [--country <CC>] [--state <state>]
+                     [--city <city>] [--company <org>] [--department <ou>]
+                     [--email <email>] [--comments <text>]
+                   # CA-only mode:
+                   --ca-only --ca <file> [--comments <text>]
+cdnpro cert update <id> [--name <name>] [--file <path>] [--example]
+                        [--if-unmodified-since <date>]
+                        # Upload mode, self-signed mode, CA-only mode:
+                        # same flags as `cert create`
 cdnpro cert delete <id>
-cdnpro cert download-csr <id>
+cdnpro cert download-csr <id> [--dcv <provider>] [--out <file>]
 ```
+
+`cert create` and `cert update` support three mutually exclusive creation modes plus `--file`:
+
+| Mode | Trigger flags | Description |
+|---|---|---|
+| **Upload** | `--cert <file>` + `--key <file>` | Upload a PEM certificate and private key. The private key is encrypted client-side (AES-128-CBC with HMAC-SHA256 key derivation) before transmission. Use `--ca <file>` to include the CA chain. |
+| **Self-signed** | `--self-signed <RSA2048\|ECC256>` | Have the server generate the certificate and private key. Requires `--common-name`. Repeatable `--san` for Subject Alternative Names. Optional subject fields: `--country`, `--state`, `--city`, `--company`, `--department`, `--email`. |
+| **CA-only** | `--ca-only --ca <file>` | Register a CA certificate without a leaf certificate or private key. |
+| **File** | `--file <path>` | Provide the full JSON request body. Use `--example` to print a schema-based example body and exit. |
+
+**Upload mode flags** (`cert create` / `cert update`):
+
+| Flag | Description |
+|---|---|
+| `--cert <file>` | Path to PEM certificate file (required) |
+| `--key <file>` | Path to PEM private key file (required) |
+| `--ca <file>` | Path to PEM CA chain file |
+| `--comments <text>` | Version comments |
+
+**Self-signed mode flags** (`cert create` / `cert update`):
+
+| Flag | Description |
+|---|---|
+| `--self-signed <alg>` | Algorithm: `RSA2048` or `ECC256` (required) |
+| `--common-name <cn>` | Common Name for the certificate (required) |
+| `--san <hostname>` | Subject Alternative Name (repeatable) |
+| `--country <CC>` | 2-letter ISO-3166 country code |
+| `--state <state>` | State or province |
+| `--city <city>` | Locality / city |
+| `--company <org>` | Organization name |
+| `--department <ou>` | Organizational unit |
+| `--email <email>` | Email address |
+| `--comments <text>` | Version comments |
+
+Both commands also accept `--name <name>` to set a friendly name for the certificate record.
+
+`cert update` additionally supports `--if-unmodified-since <date>` (RFC 3339) for optimistic concurrency control — the update is rejected if the certificate has been modified since the given date.
 
 #### Certificate versions
 
@@ -153,10 +202,61 @@ cdnpro deploy list [--from <date>] [--to <date>] [--target <staging|production>]
                    [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
                    [--report-range <scope>] [--all]
 cdnpro deploy get <id>
-cdnpro deploy create [--file <path>] [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
+cdnpro deploy create --target <staging|production>
+                      (--deploy-property <id@version> | --remove-property <id> |
+                       --deploy-cert <id@version> | --remove-cert <id>)...
+                      [--name <name>] [--webhook <id>]
+                      [--skip-certificate-check] [--skip-client-ca-certificate-check]
+                      [--skip-origin-auth-certificate-check] [--skip-usage-check]
+                      [--file <path>] [--example]
+                      [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
 ```
 
-The `--wait` flag polls until the deployment succeeds or fails. Shows a spinner in a TTY and NDJSON progress lines when piped.
+`deploy create` requires `--target` plus at least one action flag (`--deploy-property`, `--remove-property`, `--deploy-cert`, or `--remove-cert`), or `--file` to pass the full JSON body.
+
+#### Deploy create flags
+
+**Action flags** (at least one required, all repeatable):
+
+| Flag | Description |
+|---|---|
+| `--deploy-property <id@version>` | Deploy a property at the specified version |
+| `--remove-property <id>` | Remove a property from the target environment |
+| `--deploy-cert <id@version>` | Deploy a certificate at the specified version |
+| `--remove-cert <id>` | Remove a certificate from the target environment |
+
+**Metadata flags** (optional):
+
+| Flag | Description |
+|---|---|
+| `--name <name>` | Friendly name for the deployment task |
+| `--webhook <id>` | Webhook ID to call on task completion |
+
+**Safety-check bypass flags** (optional):
+
+| Flag | Description |
+|---|---|
+| `--skip-certificate-check` | Skip certificate validity check |
+| `--skip-client-ca-certificate-check` | Skip client CA certificate check |
+| `--skip-origin-auth-certificate-check` | Skip origin auth certificate check |
+| `--skip-usage-check` | Skip active-hostname safety check |
+
+**File / example flags** (alternative to individual flags):
+
+| Flag | Description |
+|---|---|
+| `--file <path>` | JSON body file (`-` for stdin) |
+| `--example` | Print example body and exit |
+
+**Polling flags** (optional):
+
+| Flag | Description |
+|---|---|
+| `--wait` | Poll until the deployment succeeds or fails |
+| `--timeout <seconds>` | Max wait time (default: 600) |
+| `--poll-interval <seconds>` | Poll frequency in seconds (default: 30) |
+
+The `--wait` flag shows a spinner in a TTY and NDJSON progress lines when piped.
 
 ### Validation
 
@@ -168,8 +268,13 @@ cdnpro validation list [--from <date>] [--to <date>] [--property <id>]
                       [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
                       [--report-range <scope>] [--all]
 cdnpro validation get <id>
-cdnpro validation create [--file <path>] [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
+cdnpro validation create --property-id <id> --property-version <version>
+                         [--name <name>] [--webhook <id>]
+                         [--file <path>] [--example]
+                         [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
 ```
+
+`validation create` requires `--property-id` and `--property-version`, or `--file` to pass the full JSON body.
 
 ### Cache Operations
 
