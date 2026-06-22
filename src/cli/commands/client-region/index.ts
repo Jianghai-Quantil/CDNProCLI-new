@@ -3,49 +3,53 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, printJsonl, buildMeta, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import {
+  OptionMapping,
+  registerOptionsFromMapping,
+  buildRequestFromMapping,
+  registerMappings,
+} from '../../option-map';
 
-interface ListOpts {
-  search?: string;
-  ispCode?: string;
-  sortOrder?: string;
-}
+const CLIENT_REGION_LIST_OPTIONS: OptionMapping[] = [
+  { flag: '--search <term>',    target: 'query', param: 'search',    description: 'Keyword search' },
+  { flag: '--isp-code <code>',   target: 'query', param: 'ispCode',   description: 'Filter by ISP code' },
+  { flag: '--sort-order <order>', target: 'query', param: 'sortOrder', description: 'Sort order: asc | desc' },
+];
 
 export function registerClientRegionCommands(parent: Command): void {
   const cmd = parent
     .command('client-region')
     .description('List client regions (read-only reference data)');
 
-  cmd
+  const listCmd = cmd
     .command('list')
-    .description('List client regions')
-    .option('--search <term>', 'Keyword search')
-    .option('--isp-code <code>', 'Filter by ISP code')
-    .option('--sort-order <order>', 'Sort order: asc | desc')
-    .action(async (opts: ListOpts, cmd: Command) => {
-      try {
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
+    .description('List client regions');
 
-        const query: Record<string, unknown> = {};
-        if (opts.search) query['search'] = opts.search;
-        if (opts.ispCode) query['ispCode'] = opts.ispCode;
-        if (opts.sortOrder) query['sortOrder'] = opts.sortOrder;
+  registerOptionsFromMapping(listCmd, CLIENT_REGION_LIST_OPTIONS);
+  registerMappings('client-region', 'list', CLIENT_REGION_LIST_OPTIONS);
 
-        const data = await client.geo.clientRegions(query);
-        const { items, meta } = buildMeta(data);
+  listCmd.action(async (opts: Record<string, unknown>, cmdObj: Command) => {
+    try {
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+      const fmt = globals.output as OutputFormat | undefined;
 
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(items);
-        } else if (effectiveFmt === 'jsonl') {
-          printJsonl(items);
-        } else {
-          printJson(items, meta);
-        }
-      } catch (err) {
-        handleError(err);
+      const { query } = buildRequestFromMapping(opts, CLIENT_REGION_LIST_OPTIONS);
+
+      const data = await client.geo.clientRegions(query);
+      const { items, meta } = buildMeta(data);
+
+      const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+      if (effectiveFmt === 'table') {
+        printTable(items);
+      } else if (effectiveFmt === 'jsonl') {
+        printJsonl(items);
+      } else {
+        printJson(items, meta);
       }
-    });
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

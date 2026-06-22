@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../../config';
 import { CDNProClient } from '../../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../../output';
 import { handleError } from '../../../errors';
+import { registerMappings } from '../../../option-map';
 
 export function registerAdminContactGetCommand(parent: Command): void {
+  registerMappings('contact', 'get', []);
+
   parent
     .command('get <id>')
     .description('Get a contact by ID')

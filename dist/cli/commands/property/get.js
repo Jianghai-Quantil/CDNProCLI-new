@@ -5,10 +5,12 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
 function isRawResponse(v) {
     return typeof v === 'object' && v !== null && 'obj' in v && 'ctx' in v;
 }
 function registerPropertyGetCommand(parent) {
+    (0, option_map_1.registerMappings)('property', 'get', []);
     parent
         .command('get <id>')
         .description('Get a property by ID')

@@ -5,7 +5,9 @@ const config_1 = require("../../../config");
 const CDNProClient_1 = require("../../../../client/CDNProClient");
 const output_1 = require("../../../output");
 const errors_1 = require("../../../errors");
+const option_map_1 = require("../../../option-map");
 function registerAdminApiAccountGetCommand(parent) {
+    (0, option_map_1.registerMappings)('api-account', 'get', []);
     parent
         .command('get <id>')
         .description('Get an API account by ID')

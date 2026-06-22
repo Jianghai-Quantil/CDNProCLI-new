@@ -3,53 +3,56 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, printJsonl, buildMeta, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import {
+  OptionMapping,
+  SORT_OPTIONS,
+  registerOptionsFromMapping,
+  buildRequestFromMapping,
+  registerMappings,
+} from '../../option-map';
 
-interface ListOpts {
-  search?: string;
-  usedInProperties?: boolean;
-  sortBy?: string;
-  sortOrder?: string;
-}
+export const SHIELD_LIST_OPTIONS: OptionMapping[] = [
+  { flag: '--search <term>',           target: 'query', param: 'search',          description: 'Keyword search' },
+  { flag: '--used-in-properties',      target: 'query', param: 'usedInProperties', description: 'Filter to shields referenced by at least one property', boolean: true },
+  ...SORT_OPTIONS,
+];
 
 export function registerShieldListCommand(parent: Command): void {
-  parent
+  const cmd = parent
     .command('list')
-    .description('List origin shields')
-    .option('--search <term>', 'Keyword search')
-    .option('--used-in-properties', 'Filter to shields referenced by at least one property')
-    .option('--sort-by <field>', 'Sort field: lastUpdated | effectiveDate')
-    .option('--sort-order <order>', 'Sort order: asc | desc')
-    .action(async (opts: ListOpts, cmd: Command) => {
-      try {
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
+    .description('List origin shields');
 
-        const query: Record<string, unknown> = {};
-        if (opts.search) query['search'] = opts.search;
-        if (opts.usedInProperties) query['usedInProperties'] = true;
-        if (opts.sortBy) query['sortBy'] = opts.sortBy;
-        if (opts.sortOrder) query['sortOrder'] = opts.sortOrder;
+  registerOptionsFromMapping(cmd, SHIELD_LIST_OPTIONS);
+  registerMappings('shield', 'list', SHIELD_LIST_OPTIONS);
 
-        const reqOptions = {
-          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-          ...(globals.verbose ? { verbose: globals.verbose } : {}),
-        };
+  cmd.action(async (opts: Record<string, unknown>, cmdObj: Command) => {
+    try {
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+      const fmt = globals.output as OutputFormat | undefined;
 
-        const data = await client.shields.list(query, reqOptions);
-        const { items, meta } = buildMeta(data);
+      const { query, reqOptions: mappedReqOptions } = buildRequestFromMapping(opts, SHIELD_LIST_OPTIONS);
 
-        const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
-        if (effectiveFmt === 'table') {
-          printTable(items);
-        } else if (effectiveFmt === 'jsonl') {
-          printJsonl(items);
-        } else {
-          printJson(items, meta);
-        }
-      } catch (err) {
-        handleError(err);
+      const reqOptions = {
+        ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...mappedReqOptions,
+        ...(globals.verbose ? { verbose: globals.verbose } : {}),
+      };
+
+      const data = await client.shields.list(query, reqOptions);
+      const { items, meta } = buildMeta(data);
+
+      const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');
+      if (effectiveFmt === 'table') {
+        printTable(items);
+      } else if (effectiveFmt === 'jsonl') {
+        printJsonl(items);
+      } else {
+        printJson(items, meta);
       }
-    });
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

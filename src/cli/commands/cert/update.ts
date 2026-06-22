@@ -8,33 +8,37 @@ import { CliError } from '../../errors';
 import { readBodyFile, emitValidationError, checkRequiredOption } from '../../util';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { validateBody } from '../../../schema/validate';
+import {
+  OptionMapping,
+  FILE_EXAMPLE,
+  IF_UNMODIFIED_SINCE,
+  registerOptionsFromMapping,
+  registerMappings,
+} from '../../option-map';
 
-interface UpdateOpts {
-  name?: string;
+export const CERT_UPDATE_OPTIONS: OptionMapping[] = [
+  { flag: '--name <name>',       target: 'body', param: 'name',                        description: 'Friendly name for the certificate record' },
   // Upload mode
-  cert?: string;
-  key?: string;
-  ca?: string;
+  { flag: '--cert <file>',       target: 'body', param: 'newVersion.certificate',       description: 'PEM certificate file (upload mode)' },
+  { flag: '--key <file>',        target: 'body', param: 'newVersion.privateKey',        description: 'PEM private key file (upload mode)' },
+  { flag: '--ca <file>',         target: 'body', param: 'newVersion.chainCert',         description: 'PEM CA chain file (upload or CA-only mode)' },
   // Self-signed mode
-  selfSigned?: string;
-  commonName?: string;
-  san?: string[];
-  country?: string;
-  state?: string;
-  city?: string;
-  company?: string;
-  department?: string;
-  email?: string;
-  comments?: string;
+  { flag: '--self-signed <alg>', target: 'body', param: 'newVersion.privateKey',        description: 'Algorithm: RSA2048 | ECC256 (server generates cert+key)' },
+  { flag: '--common-name <cn>',  target: 'body', param: 'newVersion.identificationInfo.commonName',          description: 'CN for the certificate (required with --self-signed)' },
+  { flag: '--san <hostname>',    target: 'body', param: 'newVersion.identificationInfo.subjectAlternativeNames', description: 'Subject Alternative Name; repeatable', repeatable: true },
+  { flag: '--country <CC>',      target: 'body', param: 'newVersion.identificationInfo.country',             description: '2-letter ISO-3166 country code' },
+  { flag: '--state <state>',     target: 'body', param: 'newVersion.identificationInfo.state',               description: 'State or province' },
+  { flag: '--city <city>',       target: 'body', param: 'newVersion.identificationInfo.city',                description: 'Locality' },
+  { flag: '--company <org>',     target: 'body', param: 'newVersion.identificationInfo.organization',         description: 'Organization' },
+  { flag: '--department <ou>',   target: 'body', param: 'newVersion.identificationInfo.department',           description: 'Organizational unit' },
+  { flag: '--email <email>',     target: 'body', param: 'newVersion.identificationInfo.email',                description: 'Email address' },
+  { flag: '--comments <text>',   target: 'body', param: 'newVersion.comments',               description: 'Version comments' },
   // CA-only mode
-  caOnly?: boolean;
-  // Full-body fallback
-  file?: string;
-  // Concurrency control
-  ifUnmodifiedSince?: string;
-  // Example
-  example?: boolean;
-}
+  { flag: '--ca-only',           target: 'body', param: 'caOnly',                            description: 'Update CA chain certificate only', boolean: true },
+  // Full-body fallback + concurrency
+  ...FILE_EXAMPLE,
+  IF_UNMODIFIED_SINCE,
+];
 
 function readPemFile(filePath: string, label: string): string {
   try {
@@ -64,137 +68,160 @@ function encryptPrivateKey(pemContent: string, secretKey: string, dateStr: strin
   return encrypted.toString('base64');
 }
 
+interface UpdateOpts {
+  name?: string;
+  cert?: string;
+  key?: string;
+  ca?: string;
+  selfSigned?: string;
+  commonName?: string;
+  san?: string[];
+  country?: string;
+  state?: string;
+  city?: string;
+  company?: string;
+  department?: string;
+  email?: string;
+  comments?: string;
+  caOnly?: boolean;
+  file?: string;
+  ifUnmodifiedSince?: string;
+  example?: boolean;
+}
+
 export function registerCertUpdateCommand(parent: Command): void {
-  parent
+  const cmd = parent
     .command('update [id]')
-    .description('Add a new certificate version (PATCH)')
-    .option('--name <name>', 'Friendly name for the certificate record')
-    // Upload mode
-    .option('--cert <file>', 'PEM certificate file (upload mode)')
-    .option('--key <file>', 'PEM private key file (upload mode)')
-    .option('--ca <file>', 'PEM CA chain file (upload or CA-only mode)')
-    // Self-signed mode
-    .option('--self-signed <alg>', 'Algorithm: RSA2048 | ECC256 (server generates cert+key)')
-    .option('--common-name <cn>', 'CN for the certificate (required with --self-signed)')
-    .option('--san <hostname>', 'Subject Alternative Name; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-    .option('--country <CC>', '2-letter ISO-3166 country code')
-    .option('--state <state>', 'State or province')
-    .option('--city <city>', 'Locality')
-    .option('--company <org>', 'Organization')
-    .option('--department <ou>', 'Organizational unit')
-    .option('--email <email>', 'Email address')
-    .option('--comments <text>', 'Version comments')
-    // CA-only mode
-    .option('--ca-only', 'Update CA chain certificate only')
-    // Full-body fallback
-    .option('--file <path>', 'Full request body as JSON (- for stdin)')
-    // Concurrency control
-    .option('--if-unmodified-since <date>', 'If-Unmodified-Since header (RFC 1123); server returns 412 if modified since')
-    .option('--example', 'Print mode-aware example body and exit')
-    .action(async (id: string | undefined, opts: UpdateOpts, cmd: Command) => {
-      try {
-        const isUpload = !!(opts.cert || opts.key);
-        const isSelfSigned = !!opts.selfSigned;
-        const isCaOnly = !!opts.caOnly;
-        const isFile = !!opts.file;
+    .description('Add a new certificate version (PATCH)');
 
-        // Handle --example (mode-aware)
-        if (opts.example) {
-          let exampleName: string;
-          if (isSelfSigned) {
-            exampleName = 'Example of updating with a self signed certificate';
-          } else {
-            exampleName = 'Example of updating who can use a certificate along with the certificate version.';
-          }
-          const example = getNamedSpecExample('/cdn/certificates/{certificateID}', 'patch', exampleName);
-          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
-          return;
-        }
+  registerOptionsFromMapping(cmd, CERT_UPDATE_OPTIONS);
+  registerMappings('cert', 'update', CERT_UPDATE_OPTIONS);
 
-        checkRequiredOption(id, 'id');
+  cmd.action(async (id: string | undefined, opts: UpdateOpts, cmdObj: Command) => {
+    try {
+      const isUpload = !!(opts.cert || opts.key);
+      const isSelfSigned = !!opts.selfSigned;
+      const isCaOnly = !!opts.caOnly;
+      const isFile = !!opts.file;
 
-        const modeCount = [isUpload, isSelfSigned, isCaOnly, isFile].filter(Boolean).length;
-        if (modeCount > 1) {
-          process.stderr.write('Error: --cert/--key, --self-signed, --ca-only, and --file are mutually exclusive\n');
-          process.exit(1);
-        }
-
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-
-        let body: Record<string, unknown> = {};
-        if (opts.name) body['name'] = opts.name;
-
-        let dateOverride: string | undefined;
-
-        if (isFile) {
-          body = readBodyFile(opts.file!) as Record<string, unknown>;
-          const validation = validateBody('/cdn/certificates/{certificateID}', 'patch', body);
-          if (!validation.valid) emitValidationError(validation, 'cdnpro cert update --example', globals.output);
-        } else if (isUpload) {
-          if (!opts.cert) throw new CliError('VALIDATION', '--cert <file> is required in upload mode');
-          if (!opts.key) throw new CliError('VALIDATION', '--key <file> is required in upload mode');
-
-          const dateStr = new Date().toUTCString();
-          dateOverride = dateStr;
-          const certPem = readPemFile(opts.cert, 'certificate');
-          const keyPem = readPemFile(opts.key, 'private key');
-          const encryptedKey = encryptPrivateKey(keyPem, serverInfo.secretKey, dateStr);
-
-          const newVersion: Record<string, unknown> = {
-            certificate: certPem,
-            privateKey: encryptedKey,
-          };
-          if (opts.ca) newVersion['chainCert'] = readPemFile(opts.ca, 'CA chain');
-          if (opts.comments) newVersion['comments'] = opts.comments;
-          body['newVersion'] = newVersion;
+      if (opts.example) {
+        let exampleName: string;
+        if (isSelfSigned && opts.selfSigned?.toUpperCase() === 'ECC256') {
+          exampleName = 'Example of generating a self-signed ECC256 certificate';
         } else if (isSelfSigned) {
-          const alg = opts.selfSigned!.toUpperCase();
-          if (alg !== 'RSA2048' && alg !== 'ECC256') {
-            throw new CliError('VALIDATION', '--self-signed must be RSA2048 or ECC256');
-          }
-          if (!opts.commonName) throw new CliError('VALIDATION', '--common-name is required with --self-signed');
-
-          const identificationInfo: Record<string, unknown> = {
-            commonName: opts.commonName,
-            subjectAlternativeNames: opts.san ?? [],
-          };
-          if (opts.country) identificationInfo['country'] = opts.country;
-          if (opts.state) identificationInfo['state'] = opts.state;
-          if (opts.city) identificationInfo['city'] = opts.city;
-          if (opts.company) identificationInfo['organization'] = opts.company;
-          if (opts.department) identificationInfo['department'] = opts.department;
-          if (opts.email) identificationInfo['email'] = opts.email;
-
-          const newVersion: Record<string, unknown> = {
-            privateKey: alg,
-            certificate: 'Generate',
-            identificationInfo,
-          };
-          if (opts.comments) newVersion['comments'] = opts.comments;
-          body['newVersion'] = newVersion;
-        } else if (isCaOnly) {
-          if (!opts.ca) throw new CliError('VALIDATION', '--ca <file> is required with --ca-only');
-          const caPem = readPemFile(opts.ca, 'CA chain');
-          body['newVersion'] = { chainCert: caPem };
+          exampleName = 'Example of generating a self-signed RSA2048 certificate';
+        } else {
+          exampleName = 'Example of uploading a certificate';
         }
+        const example = getNamedSpecExample('/cdn/certificates/{certificateID}', 'patch', exampleName);
+        process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+        return;
+      }
+
+      const modeCount = [isUpload, isSelfSigned, isCaOnly, isFile].filter(Boolean).length;
+      if (modeCount === 0) {
+        process.stderr.write(
+          'Error: one of --cert/--key (upload), --self-signed (generated), --ca-only (CA chain), or --file (full body) is required\n',
+        );
+        process.exit(1);
+      }
+      if (modeCount > 1) {
+        process.stderr.write('Error: --cert/--key, --self-signed, --ca-only, and --file are mutually exclusive\n');
+        process.exit(1);
+      }
+
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+
+      let body: unknown;
+
+      if (isFile) {
+        checkRequiredOption(opts.file, '--file <path>');
+        body = readBodyFile(opts.file!);
+        const validation = validateBody('/cdn/certificates/{certificateID}', 'patch', body);
+        if (!validation.valid) emitValidationError(validation, 'cdnpro cert update --example', globals.output);
+      } else if (isUpload) {
+        if (!opts.cert) throw new CliError('VALIDATION', '--cert <file> is required in upload mode');
+        if (!opts.key) throw new CliError('VALIDATION', '--key <file> is required in upload mode');
+
+        const dateStr = new Date().toUTCString();
+        const certPem = readPemFile(opts.cert, 'certificate');
+        const keyPem = readPemFile(opts.key, 'private key');
+        const encryptedKey = encryptPrivateKey(keyPem, serverInfo.secretKey, dateStr);
+
+        const newVersion: Record<string, unknown> = {
+          certificate: certPem,
+          privateKey: encryptedKey,
+        };
+        if (opts.ca) newVersion['chainCert'] = readPemFile(opts.ca, 'CA chain');
+        if (opts.comments) newVersion['comments'] = opts.comments;
+
+        body = {
+          ...(opts.name ? { name: opts.name } : {}),
+          newVersion,
+        };
 
         const reqOptions = {
           ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-          ...(globals.verbose ? { verbose: globals.verbose } : {}),
           ...(opts.ifUnmodifiedSince ? { headers: { 'If-Unmodified-Since': opts.ifUnmodifiedSince } } : {}),
-          ...(dateOverride ? { dateOverride } : {}),
+          ...(globals.verbose ? { verbose: globals.verbose } : {}),
+          dateOverride: dateStr,
         };
 
-        await client.certificates.update(id, body, reqOptions);
-        if (!process.stdout.isTTY || globals.output) {
-          process.stdout.write(JSON.stringify({ success: true }) + '\n');
-        } else {
-          process.stderr.write(`Certificate ${id} updated.\n`);
+        await client.certificates.update(id ?? '', body, { ...reqOptions, raw: true, dateOverride: dateStr });
+        process.stderr.write(`Certificate version added for ${id}.\n`);
+        return;
+      } else if (isSelfSigned) {
+        const alg = opts.selfSigned!.toUpperCase();
+        if (alg !== 'RSA2048' && alg !== 'ECC256') {
+          throw new CliError('VALIDATION', '--self-signed must be RSA2048 or ECC256');
         }
-      } catch (err) {
-        handleError(err);
+        if (!opts.commonName) throw new CliError('VALIDATION', '--common-name is required with --self-signed');
+
+        const identificationInfo: Record<string, unknown> = {
+          commonName: opts.commonName,
+          subjectAlternativeNames: opts.san ?? [],
+        };
+        if (opts.country) identificationInfo['country'] = opts.country;
+        if (opts.state) identificationInfo['state'] = opts.state;
+        if (opts.city) identificationInfo['city'] = opts.city;
+        if (opts.company) identificationInfo['organization'] = opts.company;
+        if (opts.department) identificationInfo['department'] = opts.department;
+        if (opts.email) identificationInfo['email'] = opts.email;
+
+        const newVersion: Record<string, unknown> = {
+          privateKey: alg,
+          certificate: 'Generate',
+          identificationInfo,
+        };
+        if (opts.comments) newVersion['comments'] = opts.comments;
+
+        body = {
+          ...(opts.name ? { name: opts.name } : {}),
+          newVersion,
+        };
+      } else {
+        // CA-only mode
+        if (!opts.ca) throw new CliError('VALIDATION', '--ca <file> is required with --ca-only');
+        const caPem = readPemFile(opts.ca, 'CA chain');
+        body = {
+          caOnly: true,
+          ...(opts.name ? { name: opts.name } : {}),
+          newVersion: { chainCert: caPem },
+        };
       }
-    });
+
+      const reqOptions = {
+        ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...(opts.ifUnmodifiedSince ? { headers: { 'If-Unmodified-Since': opts.ifUnmodifiedSince } } : {}),
+        ...(globals.verbose ? { verbose: globals.verbose } : {}),
+      };
+
+      await client.certificates.update(id ?? '', body, { ...reqOptions, raw: true });
+      process.stderr.write(`Certificate version added for ${id}.\n`);
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

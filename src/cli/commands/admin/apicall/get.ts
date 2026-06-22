@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../../config';
 import { CDNProClient } from '../../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../../output';
 import { handleError } from '../../../errors';
+import { registerMappings } from '../../../option-map';
 
 export function registerAdminApiCallGetCommand(parent: Command): void {
+  registerMappings('api-call', 'get', []);
+
   parent
     .command('get <id>')
     .description('Get an API call log entry by ID')

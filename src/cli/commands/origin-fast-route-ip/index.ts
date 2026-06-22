@@ -3,16 +3,20 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, printJsonl, buildMeta, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerOriginFastRouteIpCommands(parent: Command): void {
   const cmd = parent
     .command('origin-fast-route-ip')
     .description('List origin fast-route IP ranges (read-only reference data)');
 
-  cmd
+  const listCmd = cmd
     .command('list')
-    .description('List origin fast-route IP ranges')
-    .action(async (opts: Record<string, unknown>, cmd: Command) => {
+    .description('List origin fast-route IP ranges');
+
+  registerMappings('origin-fast-route-ip', 'list', []);
+
+  listCmd.action(async (opts: Record<string, unknown>, cmd: Command) => {
       try {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

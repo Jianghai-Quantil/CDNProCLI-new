@@ -3,6 +3,7 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 interface RawResponseLike {
   obj: unknown;
@@ -14,6 +15,8 @@ function isRawResponse(v: unknown): v is RawResponseLike {
 }
 
 export function registerCertVersionGetCommand(parent: Command): void {
+  registerMappings('cert-version', 'get', []);
+
   parent
     .command('get <certificateId> <version>')
     .description('Get a specific certificate version')

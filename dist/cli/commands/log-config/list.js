@@ -1,33 +1,31 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.LOG_CONFIG_LIST_OPTIONS = void 0;
 exports.registerLogConfigListCommand = registerLogConfigListCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.LOG_CONFIG_LIST_OPTIONS = [
+    { flag: '--search <term>', target: 'query', param: 'search', description: 'Filter by hostname' },
+    ...option_map_1.PAGINATION_OPTIONS,
+    option_map_1.REPORT_RANGE,
+    option_map_1.ALL,
+];
 function registerLogConfigListCommand(parent) {
-    parent
+    const cmd = parent
         .command('list')
-        .description('List log delivery configurations')
-        .option('--search <term>', 'Filter by hostname')
-        .option('--limit <n>', 'Page size [default: 10]')
-        .option('--offset <n>', 'Page offset [default: 0]')
-        .option('--all', 'Auto-paginate; implies --output jsonl')
-        .option('--report-range <scope>', 'Report-Range header: self-only | self+children | children-only')
-        .action(async (opts, cmd) => {
+        .description('List log delivery configurations');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.LOG_CONFIG_LIST_OPTIONS);
+    (0, option_map_1.registerMappings)('log-config', 'list', exports.LOG_CONFIG_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const query = {};
-            if (opts.search)
-                query['search'] = opts.search;
-            const reqOptions = {
-                ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-                ...(opts.reportRange ? { reportRange: opts.reportRange } : {}),
-                ...(globals.verbose ? { verbose: globals.verbose } : {}),
-            };
+            const { query, reqOptions } = (0, option_map_1.buildRequestFromMapping)(opts, exports.LOG_CONFIG_LIST_OPTIONS);
             if (opts.all) {
                 const limit = 100;
                 let offset = 0;
@@ -43,11 +41,11 @@ function registerLogConfigListCommand(parent) {
                 }
                 return;
             }
-            const limit = parseInt(opts.limit ?? '10', 10);
+            const limit = parseInt(String(opts.limit ?? '10'), 10);
             if (isNaN(limit) || limit < 1) {
                 throw new errors_1.CliError('VALIDATION', `--limit must be a positive integer, got: ${opts.limit}`);
             }
-            const offset = parseInt(opts.offset ?? '0', 10);
+            const offset = parseInt(String(opts.offset ?? '0'), 10);
             if (isNaN(offset) || offset < 0) {
                 throw new errors_1.CliError('VALIDATION', `--offset must be a non-negative integer, got: ${opts.offset}`);
             }

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerSchemaCommand = registerSchemaCommand;
 const query_1 = require("../../schema/query");
 const loader_1 = require("../../schema/loader");
+const option_map_1 = require("../option-map");
 const VALID_DIRECTIONS = ['request', 'response', 'both'];
 const SYNTAX = 'Usage: cdnpro schema <resource> <operation> [--direction request|response|both]';
 function getUniqueResources() {
@@ -81,7 +82,7 @@ function registerSchemaCommand(parent) {
             process.stdout.write(JSON.stringify(output, null, 2) + '\n');
             return;
         }
-        const requestObj = buildRequestObject(path, method);
+        const requestObj = buildRequestObject(path, method, resource, operation);
         if (direction === 'request') {
             const output = {
                 operation: operationId,
@@ -109,31 +110,77 @@ function registerSchemaCommand(parent) {
         process.stdout.write(JSON.stringify(output, null, 2) + '\n');
     });
 }
-function buildRequestObject(path, method) {
+function buildRequestObject(path, method, resource, operation) {
     const headers = (0, loader_1.getRequestHeaders)(path, method);
+    const mappings = (0, option_map_1.getMappings)(resource, operation);
     const isBodyMethod = ['post', 'put', 'patch'].includes(method.toLowerCase());
     if (isBodyMethod) {
         const { schema: bodySchema, required } = (0, loader_1.getRequestBodySchema)(path, method);
-        const obj = {
-            required,
-        };
+        const obj = { required };
         if (bodySchema !== null) {
             obj['contentType'] = 'application/json';
             obj['schema'] = bodySchema;
         }
-        if (Object.keys(headers).length > 0) {
-            obj['requestHeaders'] = headers;
+        // Annotate query params (report commands have query params even on POST)
+        const queryParams = (0, loader_1.getQueryParameters)(path, method);
+        if (queryParams) {
+            obj['queryParameters'] = annotateFromMappings(queryParams, 'query', mappings);
         }
+        if (Object.keys(headers).length > 0) {
+            obj['requestHeaders'] = annotateFromMappings(headers, 'header', mappings);
+        }
+        // Collect body cliFlags from mappings
+        const bodyFlags = buildBodyCliFlags(mappings);
+        if (bodyFlags)
+            obj['bodyCliFlags'] = bodyFlags;
         return obj;
     }
     // GET / DELETE
     const queryParams = (0, loader_1.getQueryParameters)(path, method);
     const obj = {};
-    if (queryParams)
-        obj['queryParameters'] = queryParams;
-    if (Object.keys(headers).length > 0)
-        obj['requestHeaders'] = headers;
+    if (queryParams) {
+        obj['queryParameters'] = annotateFromMappings(queryParams, 'query', mappings);
+    }
+    if (Object.keys(headers).length > 0) {
+        obj['requestHeaders'] = annotateFromMappings(headers, 'header', mappings);
+    }
     return obj;
+}
+/**
+ * Annotate schema parameters (query or header) with cliFlag + required
+ * from option mappings.  Preserves existing schema fields (type, enum, default, etc.)
+ * and overrides cliFlag/required when a mapping exists.
+ */
+function annotateFromMappings(params, target, mappings) {
+    const result = {};
+    for (const [name, info] of Object.entries(params)) {
+        const mapping = mappings?.find(m => m.target === target && m.param === name);
+        result[name] = {
+            ...info,
+            ...(mapping ? { cliFlag: (0, option_map_1.flagToCliFlag)(mapping.flag) } : {}),
+            ...(mapping?.required !== undefined ? { required: mapping.required } : {}),
+            ...(mapping?.boolean !== undefined ? { boolean: mapping.boolean } : {}),
+            ...(mapping?.repeatable !== undefined ? { repeatable: mapping.repeatable } : {}),
+        };
+    }
+    return result;
+}
+/** Build bodyCliFlags object from body-targeted mappings. */
+function buildBodyCliFlags(mappings) {
+    if (!mappings)
+        return null;
+    const bodyMappings = mappings.filter(m => m.target === 'body');
+    if (bodyMappings.length === 0)
+        return null;
+    const result = {};
+    for (const m of bodyMappings) {
+        result[m.param] = {
+            cliFlag: (0, option_map_1.flagToCliFlag)(m.flag),
+            ...(m.repeatable ? { repeatable: true } : {}),
+            description: m.description,
+        };
+    }
+    return result;
 }
 function getOperationId(path, method) {
     try {

@@ -3,24 +3,19 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
-import { readBodyFile, checkRequiredOption } from '../../util';
+import { readBodyFile } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
-
-interface SummaryOpts {
-  from?: string;
-  to?: string;
-  scheme?: string;
-  hostname?: string[];
-  property?: string[];
-  propertyHostname?: string[];
-  serverGroup?: string[];
-  groupBy?: string[];
-  file?: string;
-  example?: boolean;
-}
+import {
+  OptionMapping,
+  FILE_EXAMPLE,
+  registerOptionsFromMapping,
+  buildRequestFromMapping,
+  registerMappings,
+  checkRequiredMappings,
+} from '../../option-map';
 
 /**
- * Register a summary report subcommand (no --type, no --report-range, adds --group-by).
+ * Register a summary report subcommand.
  */
 export function registerSummaryReportCommand(
   parent: Command,
@@ -29,40 +24,42 @@ export function registerSummaryReportCommand(
   path: string,
   { noScheme = false, edgeHostnameFilter = false } = {},
 ): void {
-  const cmd = parent
-    .command(name)
-    .description(desc)
-    .option('--from <date>', 'Start date (RFC 3339 UTC)')
-    .option('--to <date>', 'End date (RFC 3339 UTC)')
-    .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
-    .option('--example', 'Print an example request body and exit');
+  const options: OptionMapping[] = [
+    { flag: '--from <date>', target: 'query', param: 'startdate', description: 'Start date (RFC 3339 UTC)', required: true },
+    { flag: '--to <date>',   target: 'query', param: 'enddate',   description: 'End date (RFC 3339 UTC)', required: true },
+    ...FILE_EXAMPLE,
+  ];
 
   if (!noScheme) {
-    cmd.option('--scheme <scheme>', 'Traffic type: http | https | all [default: all]');
+    options.push({ flag: '--scheme <scheme>', target: 'query', param: 'scheme', description: 'Traffic type: http | https | all [default: all]' });
   }
 
   if (edgeHostnameFilter) {
-    cmd.option(
-      '--edge-hostname <h>',
-      'Filter by edge hostname; repeatable',
-      (v: string, prev: string[]) => [...prev, v],
-      [] as string[],
-    );
+    options.push({ flag: '--edge-hostname <h>', target: 'body', param: 'filters.edgeHostnames', description: 'Filter by edge hostname; repeatable', repeatable: true });
   } else {
-    cmd
-      .option('--hostname <h>', 'Filter by client-facing hostname; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-      .option('--property <id>', 'Filter by property ID; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-      .option('--property-hostname <h>', 'Filter by property hostname pattern; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-      .option('--server-group <g>', 'Filter by server group; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-      .option(
-        '--group-by <field>',
-        'Group-by field; repeatable (up to 2): hostnames | serverGroups | customerIds | propertyHostnames | legacyTypes',
-        (v: string, prev: string[]) => [...prev, v],
-        [] as string[],
-      );
+    options.push(
+      { flag: '--hostname <h>',          target: 'body', param: 'filters.hostnames',          description: 'Filter by client-facing hostname; repeatable',       repeatable: true },
+      { flag: '--property <id>',         target: 'body', param: 'filters.propertyIds',        description: 'Filter by property ID; repeatable',                   repeatable: true },
+      { flag: '--property-hostname <h>', target: 'body', param: 'filters.propertyHostnames',  description: 'Filter by property hostname pattern; repeatable',     repeatable: true },
+      { flag: '--server-group <g>',      target: 'body', param: 'filters.serverGroups',       description: 'Filter by server group; repeatable',                  repeatable: true },
+      {
+        flag: '--group-by <field>',
+        target: 'body',
+        param: 'groupBy',
+        description: 'Group-by field; repeatable (up to 2): hostnames | serverGroups | customerIds | propertyHostnames | legacyTypes',
+        repeatable: true,
+      },
+    );
   }
 
-  cmd.action(async (opts: SummaryOpts & { edgeHostname?: string[] }, cmdObj: Command) => {
+  const cmd = parent
+    .command(name)
+    .description(desc);
+
+  registerOptionsFromMapping(cmd, options);
+  registerMappings('report', name, options);
+
+  cmd.action(async (opts: Record<string, unknown>, cmdObj: Command) => {
     try {
       if (opts.example) {
         const example = getExampleBody(path, 'post');
@@ -70,8 +67,7 @@ export function registerSummaryReportCommand(
         return;
       }
 
-      checkRequiredOption(opts.from, '--from <date>');
-      checkRequiredOption(opts.to, '--to <date>');
+      checkRequiredMappings(opts, options);
 
       const globals = cmdObj.optsWithGlobals<GlobalOptions>();
       const serverInfo = await resolveCredentials(globals);
@@ -79,34 +75,17 @@ export function registerSummaryReportCommand(
       const fmt = globals.output as OutputFormat | undefined;
 
       let body: unknown;
-      const query: Record<string, unknown> = {};
+      const { query, reqOptions: mappedReqOptions, body: builtBody } = buildRequestFromMapping(opts, options);
 
       if (opts.file) {
-        body = readBodyFile(opts.file);
+        body = readBodyFile(opts.file as string);
       } else {
-        query.startdate = opts.from;
-        query.enddate = opts.to;
-        if (!noScheme && opts.scheme) query.scheme = opts.scheme;
-
-        const filters: Record<string, unknown> = {};
-        const bodyObj: Record<string, unknown> = {};
-
-        if (edgeHostnameFilter) {
-          if ((opts.edgeHostname ?? []).length > 0) filters['edgeHostnames'] = opts.edgeHostname;
-        } else {
-          if ((opts.hostname ?? []).length > 0) filters['hostnames'] = opts.hostname;
-          if ((opts.property ?? []).length > 0) filters['propertyIds'] = opts.property;
-          if ((opts.propertyHostname ?? []).length > 0) filters['propertyHostnames'] = opts.propertyHostname;
-          if ((opts.serverGroup ?? []).length > 0) filters['serverGroups'] = opts.serverGroup;
-          if ((opts.groupBy ?? []).length > 0) bodyObj['groupBy'] = opts.groupBy;
-        }
-
-        if (Object.keys(filters).length > 0) bodyObj['filters'] = filters;
-        body = Object.keys(bodyObj).length > 0 ? bodyObj : undefined;
+        body = builtBody;
       }
 
       const reqOptions = {
         ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...mappedReqOptions,
         ...(globals.verbose ? { verbose: globals.verbose } : {}),
       };
 

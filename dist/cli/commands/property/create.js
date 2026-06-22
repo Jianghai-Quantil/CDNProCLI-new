@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PROPERTY_CREATE_OPTIONS = void 0;
 exports.registerPropertyCreateCommand = registerPropertyCreateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -8,13 +9,17 @@ const errors_1 = require("../../errors");
 const util_1 = require("../../util");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.PROPERTY_CREATE_OPTIONS = [
+    ...option_map_1.FILE_EXAMPLE,
+];
 function registerPropertyCreateCommand(parent) {
-    parent
+    const cmd = parent
         .command('create')
-        .description('Create a new property')
-        .option('--file <path>', 'JSON body file (use - for stdin)')
-        .option('--example', 'Print an example request body and exit')
-        .action(async (opts, cmd) => {
+        .description('Create a new property');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.PROPERTY_CREATE_OPTIONS);
+    (0, option_map_1.registerMappings)('property', 'create', exports.PROPERTY_CREATE_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/properties', 'post');
@@ -22,7 +27,7 @@ function registerPropertyCreateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, '--file <path>');
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const body = (0, util_1.readBodyFile)(opts.file);

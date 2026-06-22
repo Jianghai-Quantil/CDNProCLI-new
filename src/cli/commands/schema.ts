@@ -6,6 +6,7 @@ import {
   getQueryParameters,
   getRequestHeaders,
 } from '../../schema/loader';
+import { getMappings, flagToCliFlag, OptionMapping } from '../option-map';
 
 type Direction = 'request' | 'response' | 'both';
 
@@ -115,7 +116,7 @@ export function registerSchemaCommand(parent: Command): void {
         return;
       }
 
-      const requestObj = buildRequestObject(path, method);
+      const requestObj = buildRequestObject(path, method, resource, operation);
 
       if (direction === 'request') {
         const output = {
@@ -146,31 +147,93 @@ export function registerSchemaCommand(parent: Command): void {
     });
 }
 
-function buildRequestObject(path: string, method: string): Record<string, unknown> {
+function buildRequestObject(
+  path: string,
+  method: string,
+  resource: string,
+  operation: string,
+): Record<string, unknown> {
   const headers = getRequestHeaders(path, method);
+  const mappings = getMappings(resource, operation);
   const isBodyMethod = ['post', 'put', 'patch'].includes(method.toLowerCase());
 
   if (isBodyMethod) {
     const { schema: bodySchema, required } = getRequestBodySchema(path, method);
-    const obj: Record<string, unknown> = {
-      required,
-    };
+    const obj: Record<string, unknown> = { required };
     if (bodySchema !== null) {
       obj['contentType'] = 'application/json';
       obj['schema'] = bodySchema;
     }
-    if (Object.keys(headers).length > 0) {
-      obj['requestHeaders'] = headers;
+
+    // Annotate query params (report commands have query params even on POST)
+    const queryParams = getQueryParameters(path, method);
+    if (queryParams) {
+      obj['queryParameters'] = annotateFromMappings(queryParams, 'query', mappings);
     }
+
+    if (Object.keys(headers).length > 0) {
+      obj['requestHeaders'] = annotateFromMappings(headers, 'header', mappings);
+    }
+
+    // Collect body cliFlags from mappings
+    const bodyFlags = buildBodyCliFlags(mappings);
+    if (bodyFlags) obj['bodyCliFlags'] = bodyFlags;
+
     return obj;
   }
 
   // GET / DELETE
   const queryParams = getQueryParameters(path, method);
   const obj: Record<string, unknown> = {};
-  if (queryParams) obj['queryParameters'] = queryParams;
-  if (Object.keys(headers).length > 0) obj['requestHeaders'] = headers;
+  if (queryParams) {
+    obj['queryParameters'] = annotateFromMappings(queryParams, 'query', mappings);
+  }
+  if (Object.keys(headers).length > 0) {
+    obj['requestHeaders'] = annotateFromMappings(headers, 'header', mappings);
+  }
   return obj;
+}
+
+/**
+ * Annotate schema parameters (query or header) with cliFlag + required
+ * from option mappings.  Preserves existing schema fields (type, enum, default, etc.)
+ * and overrides cliFlag/required when a mapping exists.
+ */
+function annotateFromMappings(
+  params: Record<string, unknown>,
+  target: 'query' | 'header',
+  mappings: OptionMapping[] | undefined,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [name, info] of Object.entries(params)) {
+    const mapping = mappings?.find(m => m.target === target && m.param === name);
+    result[name] = {
+      ...(info as object),
+      ...(mapping ? { cliFlag: flagToCliFlag(mapping.flag) } : {}),
+      ...(mapping?.required !== undefined ? { required: mapping.required } : {}),
+      ...(mapping?.boolean !== undefined ? { boolean: mapping.boolean } : {}),
+      ...(mapping?.repeatable !== undefined ? { repeatable: mapping.repeatable } : {}),
+    };
+  }
+  return result;
+}
+
+/** Build bodyCliFlags object from body-targeted mappings. */
+function buildBodyCliFlags(
+  mappings: OptionMapping[] | undefined,
+): Record<string, { cliFlag: string; repeatable?: boolean; description?: string }> | null {
+  if (!mappings) return null;
+  const bodyMappings = mappings.filter(m => m.target === 'body');
+  if (bodyMappings.length === 0) return null;
+  const result: Record<string, { cliFlag: string; repeatable?: boolean; description?: string }> = {};
+  for (const m of bodyMappings) {
+    result[m.param!] = {
+      cliFlag: flagToCliFlag(m.flag),
+      ...(m.repeatable ? { repeatable: true } : {}),
+      description: m.description,
+    };
+  }
+  return result;
 }
 
 function getOperationId(path: string, method: string): string {

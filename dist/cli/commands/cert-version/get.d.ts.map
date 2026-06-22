@@ -1,1 +1,1 @@
-{"version":3,"file":"get.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/cert-version/get.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAepC,wBAAgB,6BAA6B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAuCnE"}
+{"version":3,"file":"get.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/cert-version/get.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAgBpC,wBAAgB,6BAA6B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAyCnE"}

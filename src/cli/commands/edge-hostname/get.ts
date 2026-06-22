@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerEdgeHostnameGetCommand(parent: Command): void {
+  registerMappings('edge-hostname', 'get', []);
+
   parent
     .command('get <name>')
     .description('Get an edge hostname by name')

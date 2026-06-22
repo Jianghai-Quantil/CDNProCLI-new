@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerPrefetchGetCommand(parent: Command): void {
+  registerMappings('prefetch', 'get', []);
+
   parent
     .command('get <id>')
     .description('Get a prefetch request by ID')

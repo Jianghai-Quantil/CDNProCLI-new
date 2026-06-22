@@ -1,45 +1,34 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.EDGE_HOSTNAME_LIST_OPTIONS = void 0;
 exports.registerEdgeHostnameListCommand = registerEdgeHostnameListCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.EDGE_HOSTNAME_LIST_OPTIONS = [
+    { flag: '--search <term>', target: 'query', param: 'search', description: 'Keyword search' },
+    { flag: '--has-beian', target: 'query', param: 'hasBeian', description: 'Filter to hostnames with Beian flag', boolean: true },
+    { flag: '--server-groups <groups>', target: 'query', param: 'serverGroups', description: 'Comma-separated server group filter' },
+    ...option_map_1.SORT_OPTIONS,
+    ...option_map_1.PAGINATION_OPTIONS,
+    option_map_1.REPORT_RANGE,
+    { flag: '--all', target: 'cli-only', param: null, description: 'Auto-paginate; implies --output jsonl' },
+];
 function registerEdgeHostnameListCommand(parent) {
-    parent
+    const cmd = parent
         .command('list')
-        .description('List edge hostnames')
-        .option('--search <term>', 'Keyword search')
-        .option('--has-beian', 'Filter to hostnames with Beian flag')
-        .option('--server-groups <groups>', 'Comma-separated server group filter')
-        .option('--sort-by <field>', 'Sort field: creationTime | lastUpdateTime')
-        .option('--sort-order <order>', 'Sort direction: asc | desc')
-        .option('--limit <n>', 'Page size [default: 10]')
-        .option('--offset <n>', 'Page offset [default: 0]')
-        .option('--all', 'Auto-paginate; implies --output jsonl')
-        .option('--report-range <scope>', 'Report-Range header: self-only | self+children | children-only')
-        .action(async (opts, cmd) => {
+        .description('List edge hostnames');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.EDGE_HOSTNAME_LIST_OPTIONS);
+    (0, option_map_1.registerMappings)('edge-hostname', 'list', exports.EDGE_HOSTNAME_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const query = {};
-            if (opts.search)
-                query['search'] = opts.search;
-            if (opts.hasBeian)
-                query['hasBeian'] = 'true';
-            if (opts.serverGroups)
-                query['serverGroups'] = opts.serverGroups;
-            if (opts.sortBy)
-                query['sortBy'] = opts.sortBy;
-            if (opts.sortOrder)
-                query['sortOrder'] = opts.sortOrder;
-            const reqOptions = {
-                ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-                ...(opts.reportRange ? { reportRange: opts.reportRange } : {}),
-                ...(globals.verbose ? { verbose: globals.verbose } : {}),
-            };
+            const { query, reqOptions } = (0, option_map_1.buildRequestFromMapping)(opts, exports.EDGE_HOSTNAME_LIST_OPTIONS);
             if (opts.all) {
                 const limit = 100;
                 let offset = 0;
@@ -55,11 +44,11 @@ function registerEdgeHostnameListCommand(parent) {
                 }
                 return;
             }
-            const limit = parseInt(opts.limit ?? '10', 10);
+            const limit = parseInt(String(opts.limit ?? '10'), 10);
             if (isNaN(limit) || limit < 1) {
                 throw new errors_1.CliError('VALIDATION', `--limit must be a positive integer, got: ${opts.limit}`);
             }
-            const offset = parseInt(opts.offset ?? '0', 10);
+            const offset = parseInt(String(opts.offset ?? '0'), 10);
             if (isNaN(offset) || offset < 0) {
                 throw new errors_1.CliError('VALIDATION', `--offset must be a non-negative integer, got: ${opts.offset}`);
             }

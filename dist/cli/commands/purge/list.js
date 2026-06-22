@@ -1,54 +1,37 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PURGE_LIST_OPTIONS = void 0;
 exports.registerPurgeListCommand = registerPurgeListCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.PURGE_LIST_OPTIONS = [
+    { flag: '--from <date>', target: 'query', param: 'startDate', description: 'Start date (RFC 3339 UTC)' },
+    { flag: '--to <date>', target: 'query', param: 'endDate', description: 'End date (RFC 3339 UTC)' },
+    { flag: '--target <env>', target: 'query', param: 'target', description: 'Filter by environment: staging | production' },
+    { flag: '--action <action>', target: 'query', param: 'action', description: 'Filter by purge action: invalidate | delete' },
+    { flag: '--search <term>', target: 'query', param: 'search', description: 'Match on hostname or purge task ID' },
+    { flag: '--max-success-rate <rate>', target: 'query', param: 'maxSuccessRate', description: 'Filter by max success rate (0-1)' },
+    ...option_map_1.SORT_OPTIONS,
+    ...option_map_1.PAGINATION_OPTIONS,
+    option_map_1.REPORT_RANGE,
+    { flag: '--all', target: 'cli-only', param: null, description: 'Auto-paginate; implies --output jsonl' },
+];
 function registerPurgeListCommand(parent) {
-    parent
+    const cmd = parent
         .command('list')
-        .description('List purge requests')
-        .option('--from <date>', 'Start date (RFC 3339 UTC)')
-        .option('--to <date>', 'End date (RFC 3339 UTC)')
-        .option('--target <env>', 'Filter by environment: staging | production')
-        .option('--action <action>', 'Filter by purge action: invalidate | delete')
-        .option('--search <term>', 'Match on hostname or purge task ID')
-        .option('--sort-by <field>', 'Sort field: submissionTime | finishTime')
-        .option('--sort-order <order>', 'Sort direction: asc | desc')
-        .option('--max-success-rate <rate>', 'Filter by max success rate (0–1)')
-        .option('--limit <n>', 'Page size [default: 10]')
-        .option('--offset <n>', 'Page offset [default: 0]')
-        .option('--all', 'Auto-paginate; implies --output jsonl')
-        .option('--report-range <scope>', 'Report-Range header: self-only | self+children | children-only')
-        .action(async (opts, cmd) => {
+        .description('List purge requests');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.PURGE_LIST_OPTIONS);
+    (0, option_map_1.registerMappings)('purge', 'list', exports.PURGE_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const query = {};
-            if (opts.from)
-                query['startDate'] = opts.from;
-            if (opts.to)
-                query['endDate'] = opts.to;
-            if (opts.target)
-                query['target'] = opts.target;
-            if (opts.action)
-                query['action'] = opts.action;
-            if (opts.search)
-                query['search'] = opts.search;
-            if (opts.sortBy)
-                query['sortBy'] = opts.sortBy;
-            if (opts.sortOrder)
-                query['sortOrder'] = opts.sortOrder;
-            if (opts.maxSuccessRate)
-                query['maxSuccessRate'] = opts.maxSuccessRate;
-            const reqOptions = {
-                ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-                ...(opts.reportRange ? { reportRange: opts.reportRange } : {}),
-                ...(globals.verbose ? { verbose: globals.verbose } : {}),
-            };
+            const { query, reqOptions } = (0, option_map_1.buildRequestFromMapping)(opts, exports.PURGE_LIST_OPTIONS);
             if (opts.all) {
                 const limit = 100;
                 let offset = 0;
@@ -64,11 +47,11 @@ function registerPurgeListCommand(parent) {
                 }
                 return;
             }
-            const limit = parseInt(opts.limit ?? '10', 10);
+            const limit = parseInt(String(opts.limit ?? '10'), 10);
             if (isNaN(limit) || limit < 1) {
                 throw new errors_1.CliError('VALIDATION', `--limit must be a positive integer, got: ${opts.limit}`);
             }
-            const offset = parseInt(opts.offset ?? '0', 10);
+            const offset = parseInt(String(opts.offset ?? '0'), 10);
             if (isNaN(offset) || offset < 0) {
                 throw new errors_1.CliError('VALIDATION', `--offset must be a non-negative integer, got: ${opts.offset}`);
             }

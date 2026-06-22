@@ -379,16 +379,16 @@ JSONL emits one object per line (for `--all` pagination and streaming):
 
 `On-Behalf-Of` is global because it appears on essentially every endpoint. It is a credential-scoping concern, not an operation-specific one.
 
-**Headers that are NOT global** and must be declared per-command:
+**Headers that are NOT global** and must be declared per-command. These are implemented as shared presets in `src/cli/option-map.ts` (`REPORT_RANGE`, `IF_UNMODIFIED_SINCE`, etc.) and spread into each command's `OptionMapping[]`:
 
-| Header | CLI flag | Applies to |
-|---|---|---|
-| `Report-Range` | `--report-range <scope>` | All `list` subcommands; all `report` subcommands |
-| `If-Unmodified-Since` | `--if-unmodified-since <date>` | All update/patch commands for mutable resources |
-| `Check-Certificate` | `--skip-certificate-check` | `deploy create` only |
-| `Check-Client-CA-Certificate` | `--skip-client-ca-certificate-check` | `deploy create` only |
-| `Check-Origin-Auth-Certificate` | `--skip-origin-auth-certificate-check` | `deploy create` only |
-| `Check-Usage` | `--skip-usage-check` | `deploy create`, `edge-hostname delete` |
+| Header | CLI flag | Applies to | Option-map preset |
+|---|---|---|---|
+| `Report-Range` | `--report-range <scope>` | All `list` subcommands; all `report` subcommands | `REPORT_RANGE` |
+| `If-Unmodified-Since` | `--if-unmodified-since <date>` | All update/patch commands for mutable resources | `IF_UNMODIFIED_SINCE` |
+| `Check-Certificate` | `--skip-certificate-check` | `deploy create` only | (inline) |
+| `Check-Client-CA-Certificate` | `--skip-client-ca-certificate-check` | `deploy create` only | (inline) |
+| `Check-Origin-Auth-Certificate` | `--skip-origin-auth-certificate-check` | `deploy create` only | (inline) |
+| `Check-Usage` | `--skip-usage-check` | `deploy create`, `edge-hostname delete` | (inline) |
 
 `Report-Range` is on 30+ operations (list and report operations; never on create/update/delete), so placing it on the root command would silently accept it on operations where the server ignores it — misleading to agents reading `--help`. It is declared on each command that supports it.
 
@@ -1305,6 +1305,12 @@ $ cdnpro schema deploy create
         "description": "Set to \"no\" to bypass the dependency/usage safety check.",
         "required": false
       }
+    },
+    "bodyCliFlags": {
+      "target": { "cliFlag": "--target", "required": true, "description": "Deployment environment: staging | production" },
+      "actions": { "cliFlag": "--deploy-property", "repeatable": true, "description": "Deploy a property at the specified version; repeatable" },
+      "name": { "cliFlag": "--name", "description": "Friendly name for the deployment task" },
+      "webhookId": { "cliFlag": "--webhook", "description": "Webhook ID to call on task completion" }
     }
   },
   "response": {
@@ -1369,12 +1375,12 @@ For GET operations the `request` sub-object contains `queryParameters` and `requ
   "direction": "both",
   "request": {
     "queryParameters": {
-      "search": { "type": "string", "description": "Keyword search" },
-      "target": { "type": "string", "enum": ["staging", "production"] },
-      "limit": { "type": "integer", "default": 10 },
-      "offset": { "type": "integer", "default": 0 },
-      "sortBy": { "type": "string" },
-      "sortOrder": { "type": "string", "enum": ["asc", "desc"] }
+      "search": { "type": "string", "cliFlag": "--search", "description": "Keyword search" },
+      "target": { "type": "string", "cliFlag": "--target", "enum": ["staging", "production"] },
+      "limit": { "type": "integer", "cliFlag": "--limit", "default": 10 },
+      "offset": { "type": "integer", "cliFlag": "--offset", "default": 0 },
+      "sortBy": { "type": "string", "cliFlag": "--sort-by" },
+      "sortOrder": { "type": "string", "cliFlag": "--sort-order", "enum": ["asc", "desc"] }
     },
     "requestHeaders": {
       "On-Behalf-Of": {
@@ -1458,9 +1464,49 @@ When only the response side is needed, pass `--direction response` to get a flat
 }
 ```
 
-The `cliFlag` field in each header entry is the key detail for AI agents: it maps the HTTP header name directly to the flag the agent should pass on the corresponding CLI command.
+#### How `cliFlag` annotations work
+
+The `cliFlag` field on query parameters, headers, and the `bodyCliFlags` map are all driven by a **declarative option-mapping system** (`src/cli/option-map.ts`). Each command file exports an `OptionMapping[]` array that declares every CLI flag, where it maps in the API request, and its metadata:
+
+```typescript
+// Example from src/cli/commands/deploy/create.ts
+export const DEPLOY_CREATE_OPTIONS: OptionMapping[] = [
+  { flag: '--target <env>',             target: 'body',   param: 'target',          description: '...', required: true },
+  { flag: '--deploy-property <id@version>', target: 'body', param: 'actions',      description: '...', repeatable: true },
+  { flag: '--skip-certificate-check',   target: 'header', param: 'Check-Certificate', description: '...', boolean: true },
+  { flag: '--wait',                     target: 'cli-only', param: null,            description: '...', boolean: true },
+  ...FILE_EXAMPLE,
+];
+```
+
+Two functions use this array as the single source of truth:
+
+1. **`registerOptionsFromMapping(cmd, OPTIONS)`** — registers each mapping as a Commander `.option()` on the command object, so `--help` and flag parsing are consistent.
+2. **`registerMappings(resource, operation, OPTIONS)`** — stores the mappings in an in-memory registry keyed by `resource.operation`. The `cdnpro schema` command reads from this registry to annotate parameters.
+
+When `cdnpro schema` runs, it:
+- Fetches the OpenAPI spec's query parameters, headers, and body schema
+- Looks up registered mappings via `getMappings(resource, operation)`
+- Calls `annotateFromMappings()` to add `cliFlag`, `required`, `boolean`, `repeatable` to matching query params and headers
+- Calls `buildBodyCliFlags()` to produce the `bodyCliFlags` map from all `target: 'body'` mappings
+
+This means the schema output always reflects the actual CLI flags, and adding a flag to a command automatically surfaces it in `cdnpro schema` — no manual synchronization required.
+
+**Shared presets** reduce repetition for flags that appear on many commands:
+
+| Preset | Flags | Used on |
+|---|---|---|
+| `PAGINATION_OPTIONS` | `--limit`, `--offset` | All list commands |
+| `SORT_OPTIONS` | `--sort-by`, `--sort-order` | List commands with sort support |
+| `REPORT_RANGE` | `--report-range` | List/report commands |
+| `FILE_EXAMPLE` | `--file`, `--example` | All create/update commands |
+| `IF_UNMODIFIED_SINCE` | `--if-unmodified-since` | All update commands |
+| `CONFIRM` | `--confirm` | All delete commands |
+| `ALL` | `--all` | List commands with auto-pagination |
 
 #### Implementation in `src/schema/loader.ts`
+
+The loader reads the raw OpenAPI spec from `openapi.json` and provides functions to extract schema, parameters, and examples. Header and query parameter annotation with `cliFlag` is handled in `src/cli/commands/schema.ts` via the option-map registry, not in `loader.ts`.
 
 ```typescript
 // src/schema/loader.ts
@@ -1471,50 +1517,6 @@ let _spec: typeof openapiRaw | null = null;
 export function getSpec() {
   if (!_spec) _spec = openapiRaw;
   return _spec;
-}
-
-/**
- * Returns all header parameters for an operation as a requestHeaders map.
- * Each entry includes the cliFlag derived from the header name, so agents
- * can map header names directly to CLI flags without guessing.
- */
-export function getRequestHeaders(openapiPath: string, method: string): Record<string, unknown> {
-  const spec = getSpec();
-  const op = (spec.paths as Record<string, Record<string, unknown>>)[openapiPath]?.[method.toLowerCase()] as Record<string, unknown> | undefined;
-  const params = op?.parameters as Array<Record<string, unknown>> | undefined ?? [];
-  const result: Record<string, unknown> = {};
-
-  for (const p of params) {
-    if (p.in !== 'header') continue;
-    const schema = p.schema as Record<string, unknown> | undefined;
-    result[p.name as string] = {
-      type: schema?.type ?? 'string',
-      cliFlag: headerNameToCliFlag(p.name as string),
-      ...(schema?.enum ? { values: schema.enum } : {}),
-      ...(schema?.default !== undefined ? { default: schema.default } : {}),
-      description: (p.description as string | undefined)?.replace(/<[^>]+>/g, '').trim() ?? '',
-      required: p.required ?? false,
-    };
-  }
-
-  return result;
-}
-
-/**
- * Maps an HTTP header name to the CLI flag convention.
- * Default rule: lowercase and hyphenate — "On-Behalf-Of" -> "--on-behalf-of"
- * Override for headers where the default name would be ambiguous or non-idiomatic:
- *   - Check-* bypass headers use --skip-* to make the intent explicit
- *   - If-Unmodified-Since maps naturally but is listed for clarity
- */
-function headerNameToCliFlag(headerName: string): string {
-  const overrides: Record<string, string> = {
-    'Check-Certificate':             '--skip-certificate-check',
-    'Check-Client-CA-Certificate':   '--skip-client-ca-certificate-check',
-    'Check-Origin-Auth-Certificate': '--skip-origin-auth-certificate-check',
-    'Check-Usage':                   '--skip-usage-check',
-  };
-  return overrides[headerName] ?? '--' + headerName.toLowerCase().replace(/\s+/g, '-');
 }
 
 export function getRequestBodySchema(path: string, method: string) {
@@ -2028,12 +2030,151 @@ Dynamic completions for property IDs, cert IDs, etc. are intentionally omitted �
 
 ---
 
+## Declarative CLI Flag → API Parameter Mapping (`src/cli/option-map.ts`)
+
+The option-map module is the **single source of truth** for how each CLI flag maps to an API request parameter. It replaces the earlier approach of deriving `cliFlag` from header names via a hardcoded `headerNameToCliFlag()` function.
+
+### `OptionMapping` type
+
+```typescript
+export interface OptionMapping {
+  flag: string;           // Full Commander flag spec: '--limit <n>' or '--all'
+  target: 'query' | 'header' | 'body' | 'cli-only';
+  param: string | null;   // API parameter name, dot-notation body path, or null for CLI-only flags
+  description: string;
+  required?: boolean;
+  repeatable?: boolean;
+  boolean?: boolean;      // Flag that takes no value (presence = true)
+}
+```
+
+**`target` values:**
+- `'query'` — maps to a query string parameter (e.g. `--limit` → `?limit=10`)
+- `'header'` — maps to an HTTP request header (e.g. `--skip-certificate-check` → `Check-Certificate: no`)
+- `'body'` — maps to a property in the JSON request body (e.g. `--hostname` → `filters.hostnames[]`). Dot-notation paths are supported for nesting.
+- `'cli-only'` — does not map to any API parameter; affects CLI behavior only (e.g. `--wait`, `--timeout`)
+
+### Key functions
+
+| Function | Purpose |
+|---|---|
+| `registerOptionsFromMapping(cmd, options)` | Registers each `OptionMapping` as a Commander `.option()` on the command object |
+| `registerMappings(resource, operation, options)` | Stores mappings in the in-memory registry for schema introspection |
+| `getMappings(resource, operation)` | Retrieves registered mappings (used by `cdnpro schema`) |
+| `buildRequestFromMapping(opts, options)` | Builds `{ query, reqOptions, body }` from parsed CLI opts using the mapping — replaces manual query/header/body construction |
+| `checkRequiredMappings(opts, options)` | Validates that all `required: true` mappings have non-empty values |
+| `flagToCliFlag(flag)` | Extracts `--flag-name` from a Commander flag spec (e.g. `'--limit <n>'` → `'--limit'`) |
+| `flagToAttr(flag)` | Converts flag to Commander attribute name (e.g. `'--sort-by'` → `'sortBy'`) |
+
+### Shared presets
+
+To avoid repeated flag definitions, `option-map.ts` exports preset arrays that commands spread into their options:
+
+```typescript
+export const PAGINATION_OPTIONS: OptionMapping[] = [
+  { flag: '--limit <n>',  target: 'query', param: 'limit',  description: 'Page size [default: 10]' },
+  { flag: '--offset <n>', target: 'query', param: 'offset', description: 'Page offset [default: 0]' },
+];
+
+export const SORT_OPTIONS: OptionMapping[] = [
+  { flag: '--sort-by <field>',    target: 'query', param: 'sortBy',    description: 'Sort field' },
+  { flag: '--sort-order <order>', target: 'query', param: 'sortOrder', description: 'Sort order: asc | desc' },
+];
+
+export const REPORT_RANGE: OptionMapping = {
+  flag: '--report-range <scope>', target: 'header', param: 'Report-Range',
+  description: 'Scope: self-only | self+children | children-only [default: self-only]',
+};
+
+export const FILE_EXAMPLE: OptionMapping[] = [
+  { flag: '--file <path>', target: 'cli-only', param: null, description: 'Full request body as JSON (- for stdin)' },
+  { flag: '--example',     target: 'cli-only', param: null, description: 'Print an example request body and exit', boolean: true },
+];
+
+export const IF_UNMODIFIED_SINCE: OptionMapping = {
+  flag: '--if-unmodified-since <date>', target: 'header', param: 'If-Unmodified-Since',
+  description: 'If-Unmodified-Since header (RFC 1123); server returns 412 if modified since',
+};
+
+export const CONFIRM: OptionMapping = {
+  flag: '--confirm', target: 'cli-only', param: null,
+  description: 'Skip confirmation prompt', boolean: true,
+};
+
+export const ALL: OptionMapping = {
+  flag: '--all', target: 'cli-only', param: null,
+  description: 'Auto-paginate through all results; implies --output jsonl', boolean: true,
+};
+```
+
+### How a command uses the option-map
+
+Every command file follows this pattern:
+
+```typescript
+// 1. Define options (spread shared presets)
+export const PROPERTY_LIST_OPTIONS: OptionMapping[] = [
+  { flag: '--search <term>', target: 'query', param: 'search', description: 'Keyword search' },
+  { flag: '--target <env>',  target: 'query', param: 'target', description: 'Filter by deployment target' },
+  ...SORT_OPTIONS,
+  ...PAGINATION_OPTIONS,
+  REPORT_RANGE,
+  ALL,
+];
+
+// 2. Register for schema introspection
+registerMappings('property', 'list', PROPERTY_LIST_OPTIONS);
+
+// 3. Register Commander options from the same source
+const cmd = parent.command('list').description('List properties');
+registerOptionsFromMapping(cmd, PROPERTY_LIST_OPTIONS);
+
+// 4. In the action handler, build the request from parsed opts
+cmd.action(async (opts: Record<string, unknown>, cmdObj: Command) => {
+  const { query, reqOptions } = buildRequestFromMapping(opts, PROPERTY_LIST_OPTIONS);
+  // ... make API call with query and reqOptions
+});
+```
+
+This ensures that:
+- `--help` output matches the schema output
+- Adding a flag to `OPTIONS` automatically adds it to both Commander and `cdnpro schema`
+- Body-targeted flags appear in `bodyCliFlags` in the schema output
+- No manual synchronization between CLI code and schema annotation
+
+### `bodyCliFlags` in schema output
+
+Body-targeted mappings (`target: 'body'`) appear in the schema output under `request.bodyCliFlags`:
+
+```json
+{
+  "bodyCliFlags": {
+    "filters.hostnames": {
+      "cliFlag": "--hostname",
+      "repeatable": true,
+      "description": "Filter by client-facing hostname; repeatable"
+    },
+    "filters.propertyIds": {
+      "cliFlag": "--property",
+      "repeatable": true,
+      "description": "Filter by property ID; repeatable"
+    }
+  }
+}
+```
+
+The key is the dot-notation body path; the value includes the CLI flag, whether it is repeatable, and its description. This tells AI agents exactly which CLI flags map to which body properties.
+
+---
+
 ## Summary of AI-Agent Affordances
 
 | Capability | Mechanism |
 |---|---|
 | Discover what commands exist | `cdnpro --help`, `cdnpro <resource> --help` |
 | Learn schema before constructing a body | `cdnpro schema <resource> <operation>` |
+| Map CLI flags to body properties | `bodyCliFlags` in schema output — shows every body-targeted CLI flag with its dot-notation path |
+| See every CLI flag for an operation | `cliFlag` field on query params and headers in schema output — driven by each command's `OptionMapping[]` |
 | Get a concrete body template | `cdnpro property create --example` |
 | Self-correct a bad body without a second tool call | Schema embedded in VALIDATION error JSON (exit 4) |
 | Parse all output programmatically | JSON envelope with `data` + `meta`; auto-JSON when not TTY |

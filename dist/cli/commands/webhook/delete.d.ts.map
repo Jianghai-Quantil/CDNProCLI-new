@@ -1,1 +1,1 @@
-{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/webhook/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAUpC,wBAAgB,4BAA4B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAsClE"}
+{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/webhook/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAKpC,OAAO,EAAE,aAAa,EAAyD,MAAM,kBAAkB,CAAC;AAExG,eAAO,MAAM,sBAAsB,EAAE,aAAa,EAAc,CAAC;AAMjE,wBAAgB,4BAA4B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwClE"}

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEPLOY_CREATE_OPTIONS = void 0;
 exports.registerDeployCreateCommand = registerDeployCreateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -10,6 +11,28 @@ const util_1 = require("../../util");
 const wait_1 = require("../../wait");
 const loader_1 = require("../../../schema/loader");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.DEPLOY_CREATE_OPTIONS = [
+    { flag: '--target <env>', target: 'body', param: 'target', description: 'Deployment environment: staging | production', required: true },
+    // Action flags
+    { flag: '--deploy-property <id@version>', target: 'body', param: 'actions', description: 'Deploy a property at the specified version; repeatable', repeatable: true },
+    { flag: '--remove-property <id>', target: 'body', param: 'actions', description: 'Remove a property from the target environment; repeatable', repeatable: true },
+    { flag: '--deploy-cert <id@version>', target: 'body', param: 'actions', description: 'Deploy a certificate at the specified version; repeatable', repeatable: true },
+    { flag: '--remove-cert <id>', target: 'body', param: 'actions', description: 'Remove a certificate from the target environment; repeatable', repeatable: true },
+    // Metadata
+    { flag: '--name <name>', target: 'body', param: 'name', description: 'Friendly name for the deployment task' },
+    { flag: '--webhook <id>', target: 'body', param: 'webhookId', description: 'Webhook ID to call on task completion' },
+    // Bypass headers
+    { flag: '--skip-certificate-check', target: 'header', param: 'Check-Certificate', description: 'Send Check-Certificate: no', boolean: true },
+    { flag: '--skip-client-ca-certificate-check', target: 'header', param: 'Check-Client-CA-Certificate', description: 'Send Check-Client-CA-Certificate: no', boolean: true },
+    { flag: '--skip-origin-auth-certificate-check', target: 'header', param: 'Check-Origin-Auth-Certificate', description: 'Send Check-Origin-Auth-Certificate: no', boolean: true },
+    { flag: '--skip-usage-check', target: 'header', param: 'Check-Usage', description: 'Skip active-hostname safety check', boolean: true },
+    // Full-body + polling
+    ...option_map_1.FILE_EXAMPLE,
+    { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until task completes', boolean: true },
+    { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 600]' },
+    { flag: '--poll-interval <seconds>', target: 'cli-only', param: null, description: 'Poll frequency [default: 30]' },
+];
 function parseAtVersion(spec, flagName) {
     const atIdx = spec.lastIndexOf('@');
     if (atIdx < 1 || atIdx === spec.length - 1) {
@@ -18,38 +41,19 @@ function parseAtVersion(spec, flagName) {
     return { id: spec.slice(0, atIdx), version: spec.slice(atIdx + 1) };
 }
 function registerDeployCreateCommand(parent) {
-    parent
+    const cmd = parent
         .command('create')
-        .description('Create a deployment task')
-        .option('--target <env>', 'Deployment environment: staging | production')
-        // Action flags
-        .option('--deploy-property <id@version>', 'Deploy a property at the specified version; repeatable', (v, prev) => [...prev, v], [])
-        .option('--remove-property <id>', 'Remove a property from the target environment; repeatable', (v, prev) => [...prev, v], [])
-        .option('--deploy-cert <id@version>', 'Deploy a certificate at the specified version; repeatable', (v, prev) => [...prev, v], [])
-        .option('--remove-cert <id>', 'Remove a certificate from the target environment; repeatable', (v, prev) => [...prev, v], [])
-        // Metadata
-        .option('--name <name>', 'Friendly name for the deployment task')
-        .option('--webhook <id>', 'Webhook ID to call on task completion')
-        // Full-body fallback
-        .option('--file <path>', 'Full request body as JSON (- for stdin)')
-        // Polling
-        .option('--wait', 'Poll until task completes')
-        .option('--timeout <seconds>', 'Max wait time [default: 600]')
-        .option('--poll-interval <seconds>', 'Poll frequency [default: 30]')
-        // Bypass headers
-        .option('--skip-certificate-check', 'Send Check-Certificate: no — skip TLS cert expiry/SAN check')
-        .option('--skip-client-ca-certificate-check', 'Send Check-Client-CA-Certificate: no')
-        .option('--skip-origin-auth-certificate-check', 'Send Check-Origin-Auth-Certificate: no')
-        .option('--skip-usage-check', 'Send Check-Usage: no — skip active-hostname safety check')
-        .option('--example', 'Print an example request body and exit')
-        .action(async (opts, cmd) => {
+        .description('Create a deployment task');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.DEPLOY_CREATE_OPTIONS);
+    (0, option_map_1.registerMappings)('deploy', 'create', exports.DEPLOY_CREATE_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, loader_1.getNamedSpecExample)('/cdn/deploymentTasks', 'post', 'Deploy a property and a certificate to production');
                 process.stdout.write(JSON.stringify(example, null, 2) + '\n');
                 return;
             }
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

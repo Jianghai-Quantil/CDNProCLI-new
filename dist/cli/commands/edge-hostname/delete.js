@@ -33,18 +33,30 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.EDGE_HOSTNAME_DELETE_OPTIONS = void 0;
 exports.registerEdgeHostnameDeleteCommand = registerEdgeHostnameDeleteCommand;
 const readline = __importStar(require("readline"));
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.EDGE_HOSTNAME_DELETE_OPTIONS = [
+    option_map_1.CONFIRM,
+    {
+        flag: '--skip-usage-check',
+        target: 'header',
+        param: 'Check-Usage',
+        description: 'Send Check-Usage: no — skip dependency safety check',
+        boolean: true,
+    },
+];
 function registerEdgeHostnameDeleteCommand(parent) {
-    parent
+    (0, option_map_1.registerMappings)('edge-hostname', 'delete', exports.EDGE_HOSTNAME_DELETE_OPTIONS);
+    const cmd = parent
         .command('delete <name>')
-        .description('Delete an edge hostname')
-        .option('--confirm', 'Skip confirmation prompt')
-        .option('--skip-usage-check', 'Send Check-Usage: no — skip dependency safety check')
-        .action(async (name, opts, cmd) => {
+        .description('Delete an edge hostname');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.EDGE_HOSTNAME_DELETE_OPTIONS);
+    cmd.action(async (name, opts, cmdObj) => {
         try {
             if (!opts.confirm && process.stdout.isTTY) {
                 const answer = await new Promise((resolve) => {
@@ -56,7 +68,7 @@ function registerEdgeHostnameDeleteCommand(parent) {
                     process.exit(0);
                 }
             }
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const headers = {};

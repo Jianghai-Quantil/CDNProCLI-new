@@ -33,17 +33,21 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.LOG_CONFIG_DELETE_OPTIONS = void 0;
 exports.registerLogConfigDeleteCommand = registerLogConfigDeleteCommand;
 const readline = __importStar(require("readline"));
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.LOG_CONFIG_DELETE_OPTIONS = [option_map_1.CONFIRM];
 function registerLogConfigDeleteCommand(parent) {
-    parent
+    (0, option_map_1.registerMappings)('log-config', 'delete', exports.LOG_CONFIG_DELETE_OPTIONS);
+    const cmd = parent
         .command('delete <id>')
-        .description('Delete a log delivery configuration')
-        .option('--confirm', 'Skip confirmation prompt')
-        .action(async (id, opts, cmd) => {
+        .description('Delete a log delivery configuration');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.LOG_CONFIG_DELETE_OPTIONS);
+    cmd.action(async (id, opts, cmdObj) => {
         try {
             if (!opts.confirm && process.stdout.isTTY) {
                 const answer = await new Promise((resolve) => {
@@ -55,7 +59,7 @@ function registerLogConfigDeleteCommand(parent) {
                     process.exit(0);
                 }
             }
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const reqOptions = {

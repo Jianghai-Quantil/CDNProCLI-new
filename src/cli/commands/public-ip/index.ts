@@ -3,16 +3,20 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, printJsonl, buildMeta, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerPublicIpCommands(parent: Command): void {
   const cmd = parent
     .command('public-ip')
     .description('List CDN public IP ranges (read-only reference data)');
 
-  cmd
+  const listCmd = cmd
     .command('list')
-    .description('List CDN public IP ranges')
-    .action(async (opts: Record<string, unknown>, cmd: Command) => {
+    .description('List CDN public IP ranges');
+
+  registerMappings('public-ip', 'list', []);
+
+  listCmd.action(async (opts: Record<string, unknown>, cmd: Command) => {
       try {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

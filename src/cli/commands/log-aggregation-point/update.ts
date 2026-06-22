@@ -5,56 +5,63 @@ import { handleError } from '../../errors';
 import { readBodyFile, emitValidationError, checkRequiredOption } from "../../util";
 import { getExampleBody } from '../../../schema/synthesize';
 import { validateBody } from '../../../schema/validate';
+import {
+  OptionMapping,
+  FILE_EXAMPLE,
+  IF_UNMODIFIED_SINCE,
+  registerOptionsFromMapping,
+  registerMappings,
+} from '../../option-map';
 
-interface UpdateOpts {
-  file?: string;
-  example?: boolean;
-  ifUnmodifiedSince?: string;
-}
+export const LOG_AGGREGATION_POINT_UPDATE_OPTIONS: OptionMapping[] = [
+  ...FILE_EXAMPLE,
+  IF_UNMODIFIED_SINCE,
+];
 
 export function registerLogAggregationPointUpdateCommand(parent: Command): void {
-  parent
+  const cmd = parent
     .command('update [id]')
-    .description('Update a log aggregation point (PATCH)')
-    .option('--file <path>', 'Request body as JSON (- for stdin)')
-    .option('--example', 'Print an example request body and exit')
-    .option('--if-unmodified-since <date>', 'Optimistic concurrency guard (If-Unmodified-Since header)')
-    .action(async (id: string | undefined, opts: UpdateOpts, cmd: Command) => {
-      try {
-        if (opts.example) {
-          const example = getExampleBody('/cdn/logAggregationPoints/{id}', 'patch');
-          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
-          return;
-        }
+    .description('Update a log aggregation point (PATCH)');
 
-        checkRequiredOption(opts.file, "--file <path>");
-        checkRequiredOption(id, 'id');
+  registerOptionsFromMapping(cmd, LOG_AGGREGATION_POINT_UPDATE_OPTIONS);
+  registerMappings('log-aggregation-point', 'update', LOG_AGGREGATION_POINT_UPDATE_OPTIONS);
 
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-
-        const body = readBodyFile(opts.file);
-        const validation = validateBody('/cdn/logAggregationPoints/{id}', 'patch', body);
-        if (!validation.valid) emitValidationError(validation, 'cdnpro log-aggregation-point update --example', globals.output);
-
-        const headers: Record<string, string> = {};
-        if (opts.ifUnmodifiedSince) headers['If-Unmodified-Since'] = opts.ifUnmodifiedSince;
-
-        const reqOptions = {
-          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-          ...(globals.verbose ? { verbose: globals.verbose } : {}),
-          ...(Object.keys(headers).length > 0 ? { headers } : {}),
-        };
-
-        await client.logAggregationPoints.update(id, body, reqOptions);
-        if (!process.stdout.isTTY || globals.output) {
-          process.stdout.write(JSON.stringify({ success: true }) + '\n');
-        } else {
-          process.stderr.write(`Log aggregation point ${id} updated.\n`);
-        }
-      } catch (err) {
-        handleError(err);
+  cmd.action(async (id: string | undefined, opts: Record<string, unknown>, cmdObj: Command) => {
+    try {
+      if (opts.example) {
+        const example = getExampleBody('/cdn/logAggregationPoints/{id}', 'patch');
+        process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+        return;
       }
-    });
+
+      checkRequiredOption(opts.file as string | undefined, "--file <path>");
+      checkRequiredOption(id, 'id');
+
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+
+      const body = readBodyFile(opts.file as string);
+      const validation = validateBody('/cdn/logAggregationPoints/{id}', 'patch', body);
+      if (!validation.valid) emitValidationError(validation, 'cdnpro log-aggregation-point update --example', globals.output);
+
+      const headers: Record<string, string> = {};
+      if (opts.ifUnmodifiedSince) headers['If-Unmodified-Since'] = opts.ifUnmodifiedSince as string;
+
+      const reqOptions = {
+        ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...(globals.verbose ? { verbose: globals.verbose } : {}),
+        ...(Object.keys(headers).length > 0 ? { headers } : {}),
+      };
+
+      await client.logAggregationPoints.update(id, body, reqOptions);
+      if (!process.stdout.isTTY || globals.output) {
+        process.stdout.write(JSON.stringify({ success: true }) + '\n');
+      } else {
+        process.stderr.write(`Log aggregation point ${id} updated.\n`);
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

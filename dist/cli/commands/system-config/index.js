@@ -5,14 +5,16 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
 function registerSystemConfigCommands(parent) {
     const cmd = parent
         .command('system-config')
         .description('View system configuration (read-only)');
-    cmd
+    const getCmd = cmd
         .command('get')
-        .description('Get system configuration settings')
-        .action(async (opts, cmd) => {
+        .description('Get system configuration settings');
+    (0, option_map_1.registerMappings)('system-config', 'get', []);
+    getCmd.action(async (opts, cmd) => {
         try {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);

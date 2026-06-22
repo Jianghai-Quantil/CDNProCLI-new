@@ -5,23 +5,26 @@ const config_1 = require("../../../config");
 const CDNProClient_1 = require("../../../../client/CDNProClient");
 const output_1 = require("../../../output");
 const errors_1 = require("../../../errors");
+const option_map_1 = require("../../../option-map");
 function registerAdminCustomerListCommand(parent) {
-    parent
+    const ADMIN_CUSTOMER_LIST_OPTIONS = [
+        { flag: '--search <term>', target: 'query', param: 'search', description: 'Keyword search' },
+        { flag: '--ids <id,...>', target: 'query', param: 'ids', description: 'Comma-separated customer IDs to filter' },
+        { flag: '--status <status>', target: 'query', param: 'status', description: 'Filter by status: active | suspended' },
+        { flag: '--products <product,...>', target: 'query', param: 'products', description: 'Filter by product codes' },
+        { flag: '--regional-offices <office,...>', target: 'query', param: 'regionalOffices', description: 'Filter by regional office codes' },
+        ...option_map_1.SORT_OPTIONS,
+        ...option_map_1.PAGINATION_OPTIONS,
+        option_map_1.ALL,
+    ];
+    (0, option_map_1.registerMappings)('admin-customer', 'list', ADMIN_CUSTOMER_LIST_OPTIONS);
+    const cmd = parent
         .command('list')
-        .description('List customers')
-        .option('--search <term>', 'Keyword search')
-        .option('--ids <id,...>', 'Comma-separated customer IDs to filter')
-        .option('--status <status>', 'Filter by status: active | suspended')
-        .option('--products <product,...>', 'Filter by product codes')
-        .option('--regional-offices <office,...>', 'Filter by regional office codes')
-        .option('--sort-by <field>', 'Sort field: creationTime | lastUpdateTime')
-        .option('--sort-order <order>', 'Sort order: asc | desc')
-        .option('--limit <n>', 'Page size [default: 10]')
-        .option('--offset <n>', 'Page offset [default: 0]')
-        .option('--all', 'Auto-paginate; implies --output jsonl')
-        .action(async (opts, cmd) => {
+        .description('List customers');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, ADMIN_CUSTOMER_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

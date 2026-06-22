@@ -294,6 +294,77 @@ cdnpro schema deploy create
 cdnpro schema purge create
 ```
 
+The output is a JSON object describing the request and response interface for the operation:
+
+- **Request body schema** — JSON Schema of the request body (for POST/PATCH/PUT)
+- **Query parameters** — each parameter annotated with `cliFlag`, `required`, `default`, etc.
+- **Request headers** — each header annotated with `cliFlag`, `values`, `description`
+- **`bodyCliFlags`** — CLI flags that map to properties in the request body (e.g. `--hostname` → `filters.hostnames` for report commands). Each entry includes the flag name, dot-notation body path, whether it is repeatable, and its description.
+- **Response schema** — JSON Schema of the successful response body
+
+This gives AI agents and users a complete picture of every CLI flag available for the operation and exactly where each flag maps in the API request (query string, header, or body).
+
+```bash
+# Inspect time-series report flags — shows bodyCliFlags for filter options
+$ cdnpro schema report edge-bandwidth
+```
+
+Example output for a time-series report showing `cliFlag` on query parameters and `bodyCliFlags` for filter options that map into the request body:
+
+```json
+{
+  "operation": "getBandwidthReport",
+  "method": "POST",
+  "path": "/cdn/report/bandwidth",
+  "request": {
+    "queryParameters": {
+      "startdate": { "type": "string", "cliFlag": "--from", "required": true, "description": "Start date (RFC 3339 UTC)" },
+      "enddate":   { "type": "string", "cliFlag": "--to",   "required": true, "description": "End date (RFC 3339 UTC)" },
+      "type":      { "type": "string", "cliFlag": "--type", "required": true, "description": "Granularity: fiveminutes | hourly | daily | monthly" },
+      "scheme":    { "type": "string", "cliFlag": "--scheme", "description": "Traffic type: http | https | all [default: all]" }
+    },
+    "requestHeaders": {
+      "On-Behalf-Of": {
+        "cliFlag": "--on-behalf-of",
+        "description": "If you are a reseller, specify the ID of a child customer."
+      },
+      "Report-Range": {
+        "cliFlag": "--report-range",
+        "description": "Scope: self-only | self+children | children-only [default: self-only]"
+      }
+    },
+    "bodyCliFlags": {
+      "filters.hostnames": {
+        "cliFlag": "--hostname",
+        "repeatable": true,
+        "description": "Filter by client-facing hostname; repeatable"
+      },
+      "filters.propertyIds": {
+        "cliFlag": "--property",
+        "repeatable": true,
+        "description": "Filter by property ID; repeatable"
+      },
+      "filters.propertyHostnames": {
+        "cliFlag": "--property-hostname",
+        "repeatable": true,
+        "description": "Filter by property hostname pattern; repeatable"
+      },
+      "filters.serverGroups": {
+        "cliFlag": "--server-group",
+        "repeatable": true,
+        "description": "Filter by server group; repeatable"
+      }
+    }
+  },
+  "response": {
+    "httpStatus": 200,
+    "schema": { "type": "object", "properties": { "data": { "type": "array" } } }
+  }
+}
+```
+
+**Direction flag:** `--direction request|response|both` controls which side of the interface is returned (default: `both`).
+
 ### Updating
 
 ```bash
@@ -372,6 +443,7 @@ while (result.status !== 'succeeded' && result.status !== 'failed') {
 | **Request-body validation** | `src/schema/loader.ts` imports the spec at runtime; `src/schema/validate.ts` feeds the extracted JSON Schema to AJV before every POST/PUT/PATCH | All create/update commands |
 | **Example body synthesis** | `src/schema/synthesize.ts` walks the spec to produce a filled-in request body for `--example` flags | All create/update commands |
 | **Schema introspection** | `src/cli/commands/schema.ts` reads the spec directly to show request/response details for `cdnpro schema <resource> <operation>` | `cdnpro schema` command |
+| **CLI flag → API parameter mapping** | Each command file exports an `OptionMapping[]` array that maps CLI flags to their API targets (query params, headers, body properties). `registerMappings()` stores this for schema introspection; `registerOptionsFromMapping()` registers Commander options from the same source. | `src/cli/option-map.ts` + every command file |
 | **Bundled artifact** | The spec is imported by `loader.ts`, so `tsc` embeds it inside `dist/` — no separate file copy needed | `npm run build` |
 
 The spec is loaded once and cached in memory the first time any schema function is called; subsequent calls within the same process reuse the cached object.
@@ -385,7 +457,8 @@ The spec is loaded once and cached in memory the first time any schema function 
 1. **Regenerate types** — run `npm run generate:types` to overwrite `src/types/api.ts`. Never edit that file by hand; it will be overwritten.
 2. **Rebuild** — run `npm run build` so the updated spec is compiled into `dist/`.
 3. **Update `OPERATION_MAP`** if you added or removed endpoints — open `src/schema/query.ts` and add/remove entries so the new operations are reachable via `cdnpro schema` and `--example`.
-4. **Run tests** — run `npm test` to catch any type errors or broken validations introduced by the spec change.
+4. **Add `OptionMapping[]`** for any new command — each command file exports its CLI flags as an `OptionMapping[]` array and calls `registerMappings()` so `cdnpro schema` can annotate parameters with `cliFlag` and `bodyCliFlags`. Use shared presets (`PAGINATION_OPTIONS`, `SORT_OPTIONS`, `FILE_EXAMPLE`, `CONFIRM`, etc.) from `src/cli/option-map.ts`.
+5. **Run tests** — run `npm test` to catch any type errors or broken validations introduced by the spec change.
 
 ## Development
 

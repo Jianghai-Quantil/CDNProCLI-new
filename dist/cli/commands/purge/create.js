@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PURGE_CREATE_OPTIONS = void 0;
 exports.registerPurgeCreateCommand = registerPurgeCreateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -11,24 +12,27 @@ const wait_1 = require("../../wait");
 const loader_1 = require("../../../schema/loader");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.PURGE_CREATE_OPTIONS = [
+    { flag: '--target <env>', target: 'body', param: 'target', description: 'Environment to purge: staging | production', required: true },
+    { flag: '--url <url>', target: 'body', param: 'urls.urls', description: 'Exact file URL to purge; repeatable', repeatable: true },
+    { flag: '--dir <url>', target: 'body', param: 'dirs.dirs', description: 'Directory URL (supports * / **); repeatable; max 20', repeatable: true },
+    { flag: '--regex <pattern>', target: 'body', param: 'regex.regexes', description: 'Regex pattern (scheme://hostname/...); repeatable; max 2', repeatable: true },
+    { flag: '--header <name:value>', target: 'body', param: 'urls.headers', description: 'Request header for cache-key disambiguation; repeatable', repeatable: true },
+    { flag: '--action <action>', target: 'body', param: 'action', description: 'Purge action: delete | invalidate [default: invalidate]' },
+    { flag: '--name <description>', target: 'body', param: 'name', description: 'Friendly name for the purge request' },
+    { flag: '--webhook <id>', target: 'body', param: 'webhookId', description: 'Webhook ID to call on completion' },
+    ...option_map_1.FILE_EXAMPLE,
+    { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until purge completes', boolean: true },
+    { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 600]' },
+    { flag: '--poll-interval <seconds>', target: 'cli-only', param: null, description: 'Poll frequency [default: 30]' },
+];
 function registerPurgeCreateCommand(parent) {
-    parent
-        .command('create')
-        .description('Create a purge request')
-        .option('--target <env>', 'Environment to purge: staging | production')
-        .option('--url <url>', 'Exact file URL to purge; repeatable', (v, prev) => [...prev, v], [])
-        .option('--dir <url>', 'Directory URL (supports * / **); repeatable; max 20', (v, prev) => [...prev, v], [])
-        .option('--regex <pattern>', 'Regex pattern (scheme://hostname/...); repeatable; max 2', (v, prev) => [...prev, v], [])
-        .option('--header <name:value>', 'Request header for cache-key disambiguation; repeatable', (v, prev) => [...prev, v], [])
-        .option('--action <action>', 'Purge action: delete | invalidate [default: invalidate]')
-        .option('--name <description>', 'Friendly name for the purge request')
-        .option('--webhook <id>', 'Webhook ID to call on completion')
-        .option('--file <path>', 'Full request body as JSON (- for stdin)')
-        .option('--wait', 'Poll until purge completes')
-        .option('--timeout <seconds>', 'Max wait time [default: 600]')
-        .option('--poll-interval <seconds>', 'Poll frequency [default: 30]')
-        .option('--example', 'Print an example request body and exit')
-        .action(async (opts, cmd) => {
+    (0, option_map_1.registerMappings)('purge', 'create', exports.PURGE_CREATE_OPTIONS);
+    const cmd = parent.command('create')
+        .description('Create a purge request');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.PURGE_CREATE_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, loader_1.getNamedSpecExample)('/cdn/purges', 'post', 'Purge by URL') ??
@@ -36,7 +40,7 @@ function registerPurgeCreateCommand(parent) {
                 process.stdout.write(JSON.stringify(example, null, 2) + '\n');
                 return;
             }
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

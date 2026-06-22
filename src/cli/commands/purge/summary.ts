@@ -3,41 +3,45 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import {
+  OptionMapping,
+  registerOptionsFromMapping,
+  buildRequestFromMapping,
+  registerMappings,
+} from '../../option-map';
 
-interface SummaryOpts {
-  from?: string;
-  to?: string;
-  target?: string;
-}
+export const PURGE_SUMMARY_OPTIONS: OptionMapping[] = [
+  { flag: '--from <date>',  target: 'query', param: 'startDate', description: 'Start date (RFC 3339 UTC)' },
+  { flag: '--to <date>',    target: 'query', param: 'endDate',   description: 'End date (RFC 3339 UTC)' },
+  { flag: '--target <env>', target: 'query', param: 'target',    description: 'Filter by environment: staging | production' },
+];
 
 export function registerPurgeSummaryCommand(parent: Command): void {
-  parent
+  const cmd = parent
     .command('summary')
-    .description('Get purge usage summary')
-    .option('--from <date>', 'Start date (RFC 3339 UTC)')
-    .option('--to <date>', 'End date (RFC 3339 UTC)')
-    .option('--target <env>', 'Filter by environment: staging | production')
-    .action(async (opts: SummaryOpts, cmd: Command) => {
-      try {
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
+    .description('Get purge usage summary');
 
-        const query: Record<string, unknown> = {};
-        if (opts.from) query['startDate'] = opts.from;
-        if (opts.to) query['endDate'] = opts.to;
-        if (opts.target) query['target'] = opts.target;
+  registerOptionsFromMapping(cmd, PURGE_SUMMARY_OPTIONS);
+  registerMappings('purge', 'summary', PURGE_SUMMARY_OPTIONS);
 
-        const reqOptions = {
-          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-          ...(globals.verbose ? { verbose: globals.verbose } : {}),
-        };
+  cmd.action(async (opts: Record<string, unknown>, cmdObj: Command) => {
+    try {
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+      const fmt = globals.output as OutputFormat | undefined;
 
-        const data = await client.purges.summary(query, reqOptions);
-        printResult(data, fmt);
-      } catch (err) {
-        handleError(err);
-      }
-    });
+      const { query } = buildRequestFromMapping(opts, PURGE_SUMMARY_OPTIONS);
+
+      const reqOptions = {
+        ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...(globals.verbose ? { verbose: globals.verbose } : {}),
+      };
+
+      const data = await client.purges.summary(query, reqOptions);
+      printResult(data, fmt);
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

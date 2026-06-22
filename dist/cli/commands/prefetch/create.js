@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PREFETCH_CREATE_OPTIONS = void 0;
 exports.registerPrefetchCreateCommand = registerPrefetchCreateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -10,16 +11,20 @@ const util_1 = require("../../util");
 const wait_1 = require("../../wait");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.PREFETCH_CREATE_OPTIONS = [
+    ...option_map_1.FILE_EXAMPLE,
+    { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until prefetch completes', boolean: true },
+    { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 600]' },
+    { flag: '--poll-interval <seconds>', target: 'cli-only', param: null, description: 'Poll frequency [default: 30]' },
+];
 function registerPrefetchCreateCommand(parent) {
-    parent
+    const cmd = parent
         .command('create')
-        .description('Create a prefetch request')
-        .option('--file <path>', 'Request body as JSON (- for stdin)')
-        .option('--example', 'Print an example request body and exit')
-        .option('--wait', 'Poll until prefetch completes')
-        .option('--timeout <seconds>', 'Max wait time [default: 600]')
-        .option('--poll-interval <seconds>', 'Poll frequency [default: 30]')
-        .action(async (opts, cmd) => {
+        .description('Create a prefetch request');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.PREFETCH_CREATE_OPTIONS);
+    (0, option_map_1.registerMappings)('prefetch', 'create', exports.PREFETCH_CREATE_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/prefetches', 'post');
@@ -27,7 +32,7 @@ function registerPrefetchCreateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

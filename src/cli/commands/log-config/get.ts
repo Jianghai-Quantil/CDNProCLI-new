@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerLogConfigGetCommand(parent: Command): void {
+  registerMappings('log-config', 'get', []);
+
   parent
     .command('get <id>')
     .description('Get a log delivery configuration by ID')

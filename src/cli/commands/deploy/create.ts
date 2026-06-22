@@ -8,29 +8,51 @@ import { readBodyFile, emitValidationError, enrichWithLocationId, checkRequiredO
 import { waitForTask } from '../../wait';
 import { getNamedSpecExample } from '../../../schema/loader';
 import { validateBody } from '../../../schema/validate';
+import {
+  OptionMapping,
+  FILE_EXAMPLE,
+  registerOptionsFromMapping,
+  registerMappings,
+} from '../../option-map';
+
+export const DEPLOY_CREATE_OPTIONS: OptionMapping[] = [
+  { flag: '--target <env>',             target: 'body',   param: 'target',          description: 'Deployment environment: staging | production', required: true },
+  // Action flags
+  { flag: '--deploy-property <id@version>', target: 'body', param: 'actions',      description: 'Deploy a property at the specified version; repeatable', repeatable: true },
+  { flag: '--remove-property <id>',      target: 'body',   param: 'actions',        description: 'Remove a property from the target environment; repeatable', repeatable: true },
+  { flag: '--deploy-cert <id@version>',  target: 'body',   param: 'actions',        description: 'Deploy a certificate at the specified version; repeatable', repeatable: true },
+  { flag: '--remove-cert <id>',          target: 'body',   param: 'actions',        description: 'Remove a certificate from the target environment; repeatable', repeatable: true },
+  // Metadata
+  { flag: '--name <name>',               target: 'body',   param: 'name',            description: 'Friendly name for the deployment task' },
+  { flag: '--webhook <id>',              target: 'body',   param: 'webhookId',       description: 'Webhook ID to call on task completion' },
+  // Bypass headers
+  { flag: '--skip-certificate-check',            target: 'header', param: 'Check-Certificate',            description: 'Send Check-Certificate: no', boolean: true },
+  { flag: '--skip-client-ca-certificate-check',  target: 'header', param: 'Check-Client-CA-Certificate',  description: 'Send Check-Client-CA-Certificate: no', boolean: true },
+  { flag: '--skip-origin-auth-certificate-check', target: 'header', param: 'Check-Origin-Auth-Certificate', description: 'Send Check-Origin-Auth-Certificate: no', boolean: true },
+  { flag: '--skip-usage-check',                  target: 'header', param: 'Check-Usage',                  description: 'Skip active-hostname safety check', boolean: true },
+  // Full-body + polling
+  ...FILE_EXAMPLE,
+  { flag: '--wait',                    target: 'cli-only', param: null, description: 'Poll until task completes', boolean: true },
+  { flag: '--timeout <seconds>',       target: 'cli-only', param: null, description: 'Max wait time [default: 600]' },
+  { flag: '--poll-interval <seconds>', target: 'cli-only', param: null, description: 'Poll frequency [default: 30]' },
+];
 
 interface CreateOpts {
   target?: string;
-  // Action flags (repeatable)
   deployProperty?: string[];
   removeProperty?: string[];
   deployCert?: string[];
   removeCert?: string[];
-  // Metadata
   name?: string;
   webhook?: string;
-  // Full-body fallback
   file?: string;
-  // Polling
   wait?: boolean;
   timeout?: string;
   pollInterval?: string;
-  // Bypass headers
   skipCertificateCheck?: boolean;
   skipClientCaCertificateCheck?: boolean;
   skipOriginAuthCertificateCheck?: boolean;
   skipUsageCheck?: boolean;
-  // Example
   example?: boolean;
 }
 
@@ -46,137 +68,120 @@ function parseAtVersion(spec: string, flagName: string): { id: string; version: 
 }
 
 export function registerDeployCreateCommand(parent: Command): void {
-  parent
+  const cmd = parent
     .command('create')
-    .description('Create a deployment task')
-    .option('--target <env>', 'Deployment environment: staging | production')
-    // Action flags
-    .option('--deploy-property <id@version>', 'Deploy a property at the specified version; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-    .option('--remove-property <id>', 'Remove a property from the target environment; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-    .option('--deploy-cert <id@version>', 'Deploy a certificate at the specified version; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-    .option('--remove-cert <id>', 'Remove a certificate from the target environment; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-    // Metadata
-    .option('--name <name>', 'Friendly name for the deployment task')
-    .option('--webhook <id>', 'Webhook ID to call on task completion')
-    // Full-body fallback
-    .option('--file <path>', 'Full request body as JSON (- for stdin)')
-    // Polling
-    .option('--wait', 'Poll until task completes')
-    .option('--timeout <seconds>', 'Max wait time [default: 600]')
-    .option('--poll-interval <seconds>', 'Poll frequency [default: 30]')
-    // Bypass headers
-    .option('--skip-certificate-check', 'Send Check-Certificate: no — skip TLS cert expiry/SAN check')
-    .option('--skip-client-ca-certificate-check', 'Send Check-Client-CA-Certificate: no')
-    .option('--skip-origin-auth-certificate-check', 'Send Check-Origin-Auth-Certificate: no')
-    .option('--skip-usage-check', 'Send Check-Usage: no — skip active-hostname safety check')
-    .option('--example', 'Print an example request body and exit')
-    .action(async (opts: CreateOpts, cmd: Command) => {
-      try {
-        if (opts.example) {
-          const example = getNamedSpecExample(
-            '/cdn/deploymentTasks',
-            'post',
-            'Deploy a property and a certificate to production',
-          );
-          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
-          return;
-        }
+    .description('Create a deployment task');
 
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
+  registerOptionsFromMapping(cmd, DEPLOY_CREATE_OPTIONS);
+  registerMappings('deploy', 'create', DEPLOY_CREATE_OPTIONS);
 
-        let body: unknown;
-
-        checkRequiredOption(opts.target, '--target <env>');
-
-        if (opts.file) {
-          body = readBodyFile(opts.file);
-          const validation = validateBody('/cdn/deploymentTasks', 'post', body);
-          if (!validation.valid) emitValidationError(validation, 'cdnpro deploy create --example', globals.output);
-        } else {
-          const hasActions =
-            (opts.deployProperty?.length ?? 0) > 0 ||
-            (opts.removeProperty?.length ?? 0) > 0 ||
-            (opts.deployCert?.length ?? 0) > 0 ||
-            (opts.removeCert?.length ?? 0) > 0;
-
-          if (!hasActions) {
-            throw new CliError(
-              'VALIDATION',
-              'At least one action flag is required: --deploy-property, --remove-property, --deploy-cert, --remove-cert',
-            );
-          }
-
-          const actions: Record<string, unknown>[] = [];
-
-          for (const spec of opts.deployProperty ?? []) {
-            const { id, version } = parseAtVersion(spec, '--deploy-property');
-            actions.push({ action: 'deploy_property', propertyId: id, version });
-          }
-          for (const id of opts.removeProperty ?? []) {
-            actions.push({ action: 'remove_property', propertyId: id });
-          }
-          for (const spec of opts.deployCert ?? []) {
-            const { id, version } = parseAtVersion(spec, '--deploy-cert');
-            actions.push({ action: 'deploy_cert', certificateId: id, version });
-          }
-          for (const id of opts.removeCert ?? []) {
-            actions.push({ action: 'remove_cert', certificateId: id });
-          }
-
-          const taskBody: Record<string, unknown> = {
-            target: opts.target,
-            actions,
-          };
-          if (opts.name) taskBody['name'] = opts.name;
-          if (opts.webhook) taskBody['webhookId'] = opts.webhook;
-          body = taskBody;
-        }
-
-        const bypassHeaders: Record<string, string> = {};
-        if (opts.skipCertificateCheck) bypassHeaders['Check-Certificate'] = 'no';
-        if (opts.skipClientCaCertificateCheck) bypassHeaders['Check-Client-CA-Certificate'] = 'no';
-        if (opts.skipOriginAuthCertificateCheck) bypassHeaders['Check-Origin-Auth-Certificate'] = 'no';
-        if (opts.skipUsageCheck) bypassHeaders['Check-Usage'] = 'no';
-
-        const reqOptions = {
-          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-          ...(globals.verbose ? { verbose: globals.verbose } : {}),
-          ...(Object.keys(bypassHeaders).length > 0 ? { headers: bypassHeaders } : {}),
-        };
-
-        const raw = await client.deploymentTasks.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
-        const data = enrichWithLocationId(raw);
-        const id = data['id'] as string;
-
-        if (opts.wait) {
-          const taskId = data['id'] as string | undefined;
-          if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
-
-          const timeout = parseInt(opts.timeout ?? '600', 10);
-          if (isNaN(timeout) || timeout < 1) {
-            throw new CliError('VALIDATION', `--timeout must be a positive integer, got: ${opts.timeout}`);
-          }
-          const pollInterval = parseInt(opts.pollInterval ?? '30', 10);
-          if (isNaN(pollInterval) || pollInterval < 1) {
-            throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
-          }
-
-          await waitForTask(
-            (id) => client.deploymentTasks.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
-            String(taskId),
-            { timeout, pollInterval, outputFormat: fmt },
-          );
-
-          printCreateSuccess('Deployment', 'deploymentId', String(taskId), fmt);
-          return;
-        }
-
-        printCreateSuccess('Deployment', 'deploymentId', id, fmt);
-      } catch (err) {
-        handleError(err);
+  cmd.action(async (opts: CreateOpts, cmdObj: Command) => {
+    try {
+      if (opts.example) {
+        const example = getNamedSpecExample(
+          '/cdn/deploymentTasks',
+          'post',
+          'Deploy a property and a certificate to production',
+        );
+        process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+        return;
       }
-    });
+
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+      const fmt = globals.output as OutputFormat | undefined;
+
+      let body: unknown;
+
+      checkRequiredOption(opts.target, '--target <env>');
+
+      if (opts.file) {
+        body = readBodyFile(opts.file);
+        const validation = validateBody('/cdn/deploymentTasks', 'post', body);
+        if (!validation.valid) emitValidationError(validation, 'cdnpro deploy create --example', globals.output);
+      } else {
+        const hasActions =
+          (opts.deployProperty?.length ?? 0) > 0 ||
+          (opts.removeProperty?.length ?? 0) > 0 ||
+          (opts.deployCert?.length ?? 0) > 0 ||
+          (opts.removeCert?.length ?? 0) > 0;
+
+        if (!hasActions) {
+          throw new CliError(
+            'VALIDATION',
+            'At least one action flag is required: --deploy-property, --remove-property, --deploy-cert, --remove-cert',
+          );
+        }
+
+        const actions: Record<string, unknown>[] = [];
+
+        for (const spec of opts.deployProperty ?? []) {
+          const { id, version } = parseAtVersion(spec, '--deploy-property');
+          actions.push({ action: 'deploy_property', propertyId: id, version });
+        }
+        for (const id of opts.removeProperty ?? []) {
+          actions.push({ action: 'remove_property', propertyId: id });
+        }
+        for (const spec of opts.deployCert ?? []) {
+          const { id, version } = parseAtVersion(spec, '--deploy-cert');
+          actions.push({ action: 'deploy_cert', certificateId: id, version });
+        }
+        for (const id of opts.removeCert ?? []) {
+          actions.push({ action: 'remove_cert', certificateId: id });
+        }
+
+        const taskBody: Record<string, unknown> = {
+          target: opts.target,
+          actions,
+        };
+        if (opts.name) taskBody['name'] = opts.name;
+        if (opts.webhook) taskBody['webhookId'] = opts.webhook;
+        body = taskBody;
+      }
+
+      const bypassHeaders: Record<string, string> = {};
+      if (opts.skipCertificateCheck) bypassHeaders['Check-Certificate'] = 'no';
+      if (opts.skipClientCaCertificateCheck) bypassHeaders['Check-Client-CA-Certificate'] = 'no';
+      if (opts.skipOriginAuthCertificateCheck) bypassHeaders['Check-Origin-Auth-Certificate'] = 'no';
+      if (opts.skipUsageCheck) bypassHeaders['Check-Usage'] = 'no';
+
+      const reqOptions = {
+        ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...(globals.verbose ? { verbose: globals.verbose } : {}),
+        ...(Object.keys(bypassHeaders).length > 0 ? { headers: bypassHeaders } : {}),
+      };
+
+      const raw = await client.deploymentTasks.create(body, { ...reqOptions, raw: true }) as { obj: Record<string, unknown>; ctx: { _res: { headers: Record<string, string | string[] | undefined> } } };
+      const data = enrichWithLocationId(raw);
+      const id = data['id'] as string;
+
+      if (opts.wait) {
+        const taskId = data['id'] as string | undefined;
+        if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
+
+        const timeout = parseInt(opts.timeout ?? '600', 10);
+        if (isNaN(timeout) || timeout < 1) {
+          throw new CliError('VALIDATION', `--timeout must be a positive integer, got: ${opts.timeout}`);
+        }
+        const pollInterval = parseInt(opts.pollInterval ?? '30', 10);
+        if (isNaN(pollInterval) || pollInterval < 1) {
+          throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
+        }
+
+        await waitForTask(
+          (id) => client.deploymentTasks.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
+          String(taskId),
+          { timeout, pollInterval, outputFormat: fmt },
+        );
+
+        printCreateSuccess('Deployment', 'deploymentId', String(taskId), fmt);
+        return;
+      }
+
+      printCreateSuccess('Deployment', 'deploymentId', id, fmt);
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

@@ -5,29 +5,28 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+const CLIENT_REGION_LIST_OPTIONS = [
+    { flag: '--search <term>', target: 'query', param: 'search', description: 'Keyword search' },
+    { flag: '--isp-code <code>', target: 'query', param: 'ispCode', description: 'Filter by ISP code' },
+    { flag: '--sort-order <order>', target: 'query', param: 'sortOrder', description: 'Sort order: asc | desc' },
+];
 function registerClientRegionCommands(parent) {
     const cmd = parent
         .command('client-region')
         .description('List client regions (read-only reference data)');
-    cmd
+    const listCmd = cmd
         .command('list')
-        .description('List client regions')
-        .option('--search <term>', 'Keyword search')
-        .option('--isp-code <code>', 'Filter by ISP code')
-        .option('--sort-order <order>', 'Sort order: asc | desc')
-        .action(async (opts, cmd) => {
+        .description('List client regions');
+    (0, option_map_1.registerOptionsFromMapping)(listCmd, CLIENT_REGION_LIST_OPTIONS);
+    (0, option_map_1.registerMappings)('client-region', 'list', CLIENT_REGION_LIST_OPTIONS);
+    listCmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const query = {};
-            if (opts.search)
-                query['search'] = opts.search;
-            if (opts.ispCode)
-                query['ispCode'] = opts.ispCode;
-            if (opts.sortOrder)
-                query['sortOrder'] = opts.sortOrder;
+            const { query } = (0, option_map_1.buildRequestFromMapping)(opts, CLIENT_REGION_LIST_OPTIONS);
             const data = await client.geo.clientRegions(query);
             const { items, meta } = (0, output_1.buildMeta)(data);
             const effectiveFmt = fmt ?? (process.stdout.isTTY ? 'table' : 'json');

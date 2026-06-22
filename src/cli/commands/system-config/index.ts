@@ -3,16 +3,20 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerSystemConfigCommands(parent: Command): void {
   const cmd = parent
     .command('system-config')
     .description('View system configuration (read-only)');
 
-  cmd
+  const getCmd = cmd
     .command('get')
-    .description('Get system configuration settings')
-    .action(async (opts: Record<string, unknown>, cmd: Command) => {
+    .description('Get system configuration settings');
+
+  registerMappings('system-config', 'get', []);
+
+  getCmd.action(async (opts: Record<string, unknown>, cmd: Command) => {
       try {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

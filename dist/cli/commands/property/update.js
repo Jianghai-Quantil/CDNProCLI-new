@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PROPERTY_UPDATE_OPTIONS = void 0;
 exports.registerPropertyUpdateCommand = registerPropertyUpdateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -7,14 +8,15 @@ const errors_1 = require("../../errors");
 const util_1 = require("../../util");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.PROPERTY_UPDATE_OPTIONS = [...option_map_1.FILE_EXAMPLE, option_map_1.IF_UNMODIFIED_SINCE];
 function registerPropertyUpdateCommand(parent) {
-    parent
+    (0, option_map_1.registerMappings)('property', 'update', exports.PROPERTY_UPDATE_OPTIONS);
+    const cmd = parent
         .command('update [id]')
-        .description('Update a property (PATCH)')
-        .option('--file <path>', 'JSON body file (use - for stdin)')
-        .option('--if-unmodified-since <date>', 'If-Unmodified-Since header (RFC 1123); server returns 412 if modified since')
-        .option('--example', 'Print an example request body and exit')
-        .action(async (id, opts, cmd) => {
+        .description('Update a property (PATCH)');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.PROPERTY_UPDATE_OPTIONS);
+    cmd.action(async (id, opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/properties/{propertyID}', 'patch');
@@ -23,7 +25,7 @@ function registerPropertyUpdateCommand(parent) {
             }
             (0, util_1.checkRequiredOption)(opts.file, '--file <path>');
             (0, util_1.checkRequiredOption)(id, 'id');
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const body = (0, util_1.readBodyFile)(opts.file);

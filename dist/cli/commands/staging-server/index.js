@@ -5,14 +5,16 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
 function registerStagingServerCommands(parent) {
     const cmd = parent
         .command('staging-server')
         .description('List staging servers (read-only reference data)');
-    cmd
+    const listCmd = cmd
         .command('list')
-        .description('List staging servers')
-        .action(async (opts, cmd) => {
+        .description('List staging servers');
+    (0, option_map_1.registerMappings)('staging-server', 'list', []);
+    listCmd.action(async (opts, cmd) => {
         try {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);

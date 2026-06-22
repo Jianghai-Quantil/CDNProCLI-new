@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.WEBHOOK_CREATE_OPTIONS = void 0;
 exports.registerWebhookCreateCommand = registerWebhookCreateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -8,13 +9,17 @@ const errors_1 = require("../../errors");
 const util_1 = require("../../util");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.WEBHOOK_CREATE_OPTIONS = [
+    ...option_map_1.FILE_EXAMPLE,
+];
 function registerWebhookCreateCommand(parent) {
-    parent
+    const cmd = parent
         .command('create')
-        .description('Create a webhook')
-        .option('--file <path>', 'Request body as JSON (- for stdin)')
-        .option('--example', 'Print an example request body and exit')
-        .action(async (opts, cmd) => {
+        .description('Create a webhook');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.WEBHOOK_CREATE_OPTIONS);
+    (0, option_map_1.registerMappings)('webhook', 'create', exports.WEBHOOK_CREATE_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/webhooks', 'post');
@@ -22,7 +27,7 @@ function registerWebhookCreateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const body = (0, util_1.readBodyFile)(opts.file);

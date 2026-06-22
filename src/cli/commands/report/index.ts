@@ -7,6 +7,19 @@ import { readBodyFile, checkRequiredOption } from '../../util';
 import { getExampleBody } from '../../../schema/synthesize';
 import { registerTimeSeriesReportCommand } from './time-series';
 import { registerSummaryReportCommand } from './summary';
+import {
+  OptionMapping,
+  FILE_EXAMPLE,
+  registerOptionsFromMapping,
+  registerMappings,
+} from '../../option-map';
+
+export const REPORT_LOGS_OPTIONS: OptionMapping[] = [
+  { flag: '--from <date>',     target: 'query', param: 'startdate', description: 'Start date (RFC 3339 UTC)', required: true },
+  { flag: '--to <date>',       target: 'query', param: 'enddate',   description: 'End date (RFC 3339 UTC)', required: true },
+  { flag: '--hostname <h>',    target: 'body',  param: 'filters.hostnames', description: 'Filter by hostname; repeatable', repeatable: true },
+  ...FILE_EXAMPLE,
+];
 
 export function registerReportCommands(parent: Command): void {
   const report = parent
@@ -58,51 +71,49 @@ export function registerReportCommands(parent: Command): void {
   );
 
   // ── Log download ─────────────────────────────────────────────────────
-  report
+  registerMappings('report', 'logs', REPORT_LOGS_OPTIONS);
+
+  const logsCmd = report
     .command('logs')
-    .description('Request log download links')
-    .option('--from <date>', 'Start date (RFC 3339 UTC)')
-    .option('--to <date>', 'End date (RFC 3339 UTC)')
-    .option('--hostname <h>', 'Filter by hostname; repeatable', (v: string, prev: string[]) => [...prev, v], [] as string[])
-    .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
-    .option('--example', 'Print an example request body and exit')
-    .action(async (opts: { from?: string; to?: string; hostname?: string[]; file?: string; example?: boolean }, cmd: Command) => {
-      try {
-        if (opts.example) {
-          const example = getExampleBody('/cdn/report/logDownload', 'post');
-          process.stdout.write(JSON.stringify(example, null, 2) + '\n');
-          return;
-        }
-
-        checkRequiredOption(opts.from, '--from <date>');
-        checkRequiredOption(opts.to, '--to <date>');
-
-        const globals = cmd.optsWithGlobals<GlobalOptions>();
-        const serverInfo = await resolveCredentials(globals);
-        const client = new CDNProClient(serverInfo);
-        const fmt = globals.output as OutputFormat | undefined;
-
-        let body: unknown;
-        const query: Record<string, unknown> = {};
-        if (opts.file) {
-          body = readBodyFile(opts.file);
-        } else {
-          query.startdate = opts.from;
-          query.enddate = opts.to;
-          const filters: Record<string, unknown> = {};
-          if ((opts.hostname ?? []).length > 0) filters['hostnames'] = opts.hostname;
-          body = Object.keys(filters).length > 0 ? { filters } : undefined;
-        }
-
-        const reqOptions = {
-          ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-          ...(globals.verbose ? { verbose: globals.verbose } : {}),
-        };
-
-        const data = await client.report.post('/cdn/report/logDownload', { query, body }, reqOptions);
-        printResult(data, fmt);
-      } catch (err) {
-        handleError(err);
+    .description('Request log download links');
+  registerOptionsFromMapping(logsCmd, REPORT_LOGS_OPTIONS);
+  logsCmd.action(async (opts: { from?: string; to?: string; hostname?: string[]; file?: string; example?: boolean }, cmdObj: Command) => {
+    try {
+      if (opts.example) {
+        const example = getExampleBody('/cdn/report/logDownload', 'post');
+        process.stdout.write(JSON.stringify(example, null, 2) + '\n');
+        return;
       }
-    });
+
+      checkRequiredOption(opts.from, '--from <date>');
+      checkRequiredOption(opts.to, '--to <date>');
+
+      const globals = cmdObj.optsWithGlobals<GlobalOptions>();
+      const serverInfo = await resolveCredentials(globals);
+      const client = new CDNProClient(serverInfo);
+      const fmt = globals.output as OutputFormat | undefined;
+
+      let body: unknown;
+      const query: Record<string, unknown> = {};
+      if (opts.file) {
+        body = readBodyFile(opts.file);
+      } else {
+        query.startdate = opts.from;
+        query.enddate = opts.to;
+        const filters: Record<string, unknown> = {};
+        if ((opts.hostname ?? []).length > 0) filters['hostnames'] = opts.hostname;
+        body = Object.keys(filters).length > 0 ? { filters } : undefined;
+      }
+
+      const reqOptions = {
+        ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
+        ...(globals.verbose ? { verbose: globals.verbose } : {}),
+      };
+
+      const data = await client.report.post('/cdn/report/logDownload', { query, body }, reqOptions);
+      printResult(data, fmt);
+    } catch (err) {
+      handleError(err);
+    }
+  });
 }

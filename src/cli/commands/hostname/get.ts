@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerHostnameGetCommand(parent: Command): void {
+  registerMappings('hostname', 'get', []);
+
   parent
     .command('get <hostname>')
     .description('Get a CDN hostname by name')

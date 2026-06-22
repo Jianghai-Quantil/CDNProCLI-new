@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CERT_DOWNLOAD_CSR_OPTIONS = void 0;
 exports.registerCertDownloadCsrCommand = registerCertDownloadCsrCommand;
 const fs = __importStar(require("fs"));
 const config_1 = require("../../config");
@@ -40,21 +41,24 @@ const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
 const errors_2 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.CERT_DOWNLOAD_CSR_OPTIONS = [
+    { flag: '--dcv <provider>', target: 'query', param: 'dcv', description: 'DCV provider (e.g. sectigo)' },
+    { flag: '--out <file>', target: 'cli-only', param: null, description: 'Write CSR to file instead of stdout' },
+];
 function registerCertDownloadCsrCommand(parent) {
-    parent
+    const cmd = parent
         .command('download-csr <id>')
-        .description('Download the CSR for a certificate')
-        .option('--dcv <provider>', 'DCV provider (e.g. sectigo)')
-        .option('--out <file>', 'Write CSR to file instead of stdout')
-        .action(async (id, opts, cmd) => {
+        .description('Download the CSR for a certificate');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.CERT_DOWNLOAD_CSR_OPTIONS);
+    (0, option_map_1.registerMappings)('cert', 'download-csr', exports.CERT_DOWNLOAD_CSR_OPTIONS);
+    cmd.action(async (id, opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const query = {};
-            if (opts.dcv)
-                query['dcv'] = opts.dcv;
+            const { query } = (0, option_map_1.buildRequestFromMapping)(opts, exports.CERT_DOWNLOAD_CSR_OPTIONS);
             const reqOptions = {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),

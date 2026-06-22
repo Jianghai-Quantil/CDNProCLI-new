@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.REPORT_LOGS_OPTIONS = void 0;
 exports.registerReportCommands = registerReportCommands;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -9,6 +10,13 @@ const util_1 = require("../../util");
 const synthesize_1 = require("../../../schema/synthesize");
 const time_series_1 = require("./time-series");
 const summary_1 = require("./summary");
+const option_map_1 = require("../../option-map");
+exports.REPORT_LOGS_OPTIONS = [
+    { flag: '--from <date>', target: 'query', param: 'startdate', description: 'Start date (RFC 3339 UTC)', required: true },
+    { flag: '--to <date>', target: 'query', param: 'enddate', description: 'End date (RFC 3339 UTC)', required: true },
+    { flag: '--hostname <h>', target: 'body', param: 'filters.hostnames', description: 'Filter by hostname; repeatable', repeatable: true },
+    ...option_map_1.FILE_EXAMPLE,
+];
 function registerReportCommands(parent) {
     const report = parent
         .command('report')
@@ -42,15 +50,12 @@ function registerReportCommands(parent) {
     // edge-hostname-requests-summary: no --scheme, uses edgeHostname filter, no group-by
     (0, summary_1.registerSummaryReportCommand)(report, 'edge-hostname-requests-summary', 'Edge hostname request count summary', '/cdn/report/edgeHostnameReqSummary', { noScheme: true, edgeHostnameFilter: true });
     // ── Log download ─────────────────────────────────────────────────────
-    report
+    (0, option_map_1.registerMappings)('report', 'logs', exports.REPORT_LOGS_OPTIONS);
+    const logsCmd = report
         .command('logs')
-        .description('Request log download links')
-        .option('--from <date>', 'Start date (RFC 3339 UTC)')
-        .option('--to <date>', 'End date (RFC 3339 UTC)')
-        .option('--hostname <h>', 'Filter by hostname; repeatable', (v, prev) => [...prev, v], [])
-        .option('--file <path>', 'Full filters body as JSON; overrides filter flags (- for stdin)')
-        .option('--example', 'Print an example request body and exit')
-        .action(async (opts, cmd) => {
+        .description('Request log download links');
+    (0, option_map_1.registerOptionsFromMapping)(logsCmd, exports.REPORT_LOGS_OPTIONS);
+    logsCmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/report/logDownload', 'post');
@@ -59,7 +64,7 @@ function registerReportCommands(parent) {
             }
             (0, util_1.checkRequiredOption)(opts.from, '--from <date>');
             (0, util_1.checkRequiredOption)(opts.to, '--to <date>');
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

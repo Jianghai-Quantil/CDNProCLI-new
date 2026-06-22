@@ -3,6 +3,7 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printJson, printTable, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 interface RawResponseLike {
   obj: unknown;
@@ -14,6 +15,8 @@ function isRawResponse(v: unknown): v is RawResponseLike {
 }
 
 export function registerPropertyGetCommand(parent: Command): void {
+  registerMappings('property', 'get', []);
+
   parent
     .command('get <id>')
     .description('Get a property by ID')

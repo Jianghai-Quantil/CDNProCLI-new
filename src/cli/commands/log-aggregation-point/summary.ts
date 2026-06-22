@@ -3,12 +3,16 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerLogAggregationPointSummaryCommand(parent: Command): void {
-  parent
+  const cmd = parent
     .command('summary')
-    .description('Get log aggregation point summary report')
-    .action(async (opts: Record<string, unknown>, cmd: Command) => {
+    .description('Get log aggregation point summary report');
+
+  registerMappings('log-aggregation-point', 'summary', []);
+
+  cmd.action(async (opts: Record<string, unknown>, cmd: Command) => {
       try {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials(globals);

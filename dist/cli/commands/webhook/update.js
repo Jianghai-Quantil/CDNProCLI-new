@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.WEBHOOK_UPDATE_OPTIONS = void 0;
 exports.registerWebhookUpdateCommand = registerWebhookUpdateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -7,14 +8,15 @@ const errors_1 = require("../../errors");
 const util_1 = require("../../util");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.WEBHOOK_UPDATE_OPTIONS = [...option_map_1.FILE_EXAMPLE, option_map_1.IF_UNMODIFIED_SINCE];
 function registerWebhookUpdateCommand(parent) {
-    parent
+    (0, option_map_1.registerMappings)('webhook', 'update', exports.WEBHOOK_UPDATE_OPTIONS);
+    const cmd = parent
         .command('update [id]')
-        .description('Update a webhook (PATCH)')
-        .option('--file <path>', 'Request body as JSON (- for stdin)')
-        .option('--example', 'Print an example request body and exit')
-        .option('--if-unmodified-since <date>', 'Optimistic concurrency guard (If-Unmodified-Since header)')
-        .action(async (id, opts, cmd) => {
+        .description('Update a webhook (PATCH)');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.WEBHOOK_UPDATE_OPTIONS);
+    cmd.action(async (id, opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/webhooks/{id}', 'patch');
@@ -23,7 +25,7 @@ function registerWebhookUpdateCommand(parent) {
             }
             (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
             (0, util_1.checkRequiredOption)(id, 'id');
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const body = (0, util_1.readBodyFile)(opts.file);

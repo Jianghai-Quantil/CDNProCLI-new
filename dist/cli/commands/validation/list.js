@@ -1,54 +1,37 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.VALIDATION_LIST_OPTIONS = void 0;
 exports.registerValidationListCommand = registerValidationListCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.VALIDATION_LIST_OPTIONS = [
+    { flag: '--from <date>', target: 'query', param: 'from', description: 'Filter by submission time (start)' },
+    { flag: '--to <date>', target: 'query', param: 'to', description: 'Filter by submission time (end)' },
+    { flag: '--property <id>', target: 'query', param: 'propertyId', description: 'Filter by property ID' },
+    { flag: '--property-version <version>', target: 'query', param: 'propertyVersion', description: 'Filter by property version' },
+    { flag: '--status <status>', target: 'query', param: 'status', description: 'Filter by status: waiting | in-progress | failed | succeeded' },
+    { flag: '--search <term>', target: 'query', param: 'search', description: 'Keyword search' },
+    ...option_map_1.SORT_OPTIONS,
+    ...option_map_1.PAGINATION_OPTIONS,
+    option_map_1.REPORT_RANGE,
+    { flag: '--all', target: 'cli-only', param: null, description: 'Auto-paginate; implies --output jsonl' },
+];
 function registerValidationListCommand(parent) {
-    parent
+    const cmd = parent
         .command('list')
-        .description('List validation tasks')
-        .option('--from <date>', 'Filter by submission time (start)')
-        .option('--to <date>', 'Filter by submission time (end)')
-        .option('--property <id>', 'Filter by property ID')
-        .option('--property-version <version>', 'Filter by property version')
-        .option('--status <status>', 'Filter by status: waiting | in-progress | failed | succeeded')
-        .option('--search <term>', 'Keyword search')
-        .option('--sort-by <field>', 'Sort field: submissionTime | finishTime')
-        .option('--sort-order <order>', 'Sort direction: asc | desc')
-        .option('--limit <n>', 'Page size [default: 10]')
-        .option('--offset <n>', 'Page offset [default: 0]')
-        .option('--all', 'Auto-paginate; implies --output jsonl')
-        .option('--report-range <scope>', 'Report-Range header: self-only | self+children | children-only')
-        .action(async (opts, cmd) => {
+        .description('List validation tasks');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.VALIDATION_LIST_OPTIONS);
+    (0, option_map_1.registerMappings)('validation', 'list', exports.VALIDATION_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const query = {};
-            if (opts.from)
-                query['from'] = opts.from;
-            if (opts.to)
-                query['to'] = opts.to;
-            if (opts.property)
-                query['propertyId'] = opts.property;
-            if (opts.propertyVersion)
-                query['propertyVersion'] = opts.propertyVersion;
-            if (opts.status)
-                query['status'] = opts.status;
-            if (opts.search)
-                query['search'] = opts.search;
-            if (opts.sortBy)
-                query['sortBy'] = opts.sortBy;
-            if (opts.sortOrder)
-                query['sortOrder'] = opts.sortOrder;
-            const reqOptions = {
-                ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-                ...(opts.reportRange ? { reportRange: opts.reportRange } : {}),
-                ...(globals.verbose ? { verbose: globals.verbose } : {}),
-            };
+            const { query, reqOptions } = (0, option_map_1.buildRequestFromMapping)(opts, exports.VALIDATION_LIST_OPTIONS);
             if (opts.all) {
                 const limit = 100;
                 let offset = 0;
@@ -64,11 +47,11 @@ function registerValidationListCommand(parent) {
                 }
                 return;
             }
-            const limit = parseInt(opts.limit ?? '10', 10);
+            const limit = parseInt(String(opts.limit ?? '10'), 10);
             if (isNaN(limit) || limit < 1) {
                 throw new errors_1.CliError('VALIDATION', `--limit must be a positive integer, got: ${opts.limit}`);
             }
-            const offset = parseInt(opts.offset ?? '0', 10);
+            const offset = parseInt(String(opts.offset ?? '0'), 10);
             if (isNaN(offset) || offset < 0) {
                 throw new errors_1.CliError('VALIDATION', `--offset must be a non-negative integer, got: ${opts.offset}`);
             }

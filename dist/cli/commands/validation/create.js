@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.VALIDATION_CREATE_OPTIONS = void 0;
 exports.registerValidationCreateCommand = registerValidationCreateCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
@@ -10,16 +11,20 @@ const util_1 = require("../../util");
 const wait_1 = require("../../wait");
 const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
+const option_map_1 = require("../../option-map");
+exports.VALIDATION_CREATE_OPTIONS = [
+    ...option_map_1.FILE_EXAMPLE,
+    { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until validation completes', boolean: true },
+    { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 300]' },
+    { flag: '--poll-interval <seconds>', target: 'cli-only', param: null, description: 'Poll frequency [default: 10]' },
+];
 function registerValidationCreateCommand(parent) {
-    parent
+    const cmd = parent
         .command('create')
-        .description('Create a validation task from a JSON body file')
-        .option('--file <path>', 'Request body as JSON (- for stdin)')
-        .option('--example', 'Print an example request body and exit')
-        .option('--wait', 'Poll until validation completes')
-        .option('--timeout <seconds>', 'Max wait time [default: 300]')
-        .option('--poll-interval <seconds>', 'Poll frequency [default: 10]')
-        .action(async (opts, cmd) => {
+        .description('Create a validation task from a JSON body file');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.VALIDATION_CREATE_OPTIONS);
+    (0, option_map_1.registerMappings)('validation', 'create', exports.VALIDATION_CREATE_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
             if (opts.example) {
                 const example = (0, synthesize_1.getExampleBody)('/cdn/validations', 'post');
@@ -27,7 +32,7 @@ function registerValidationCreateCommand(parent) {
                 return;
             }
             (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

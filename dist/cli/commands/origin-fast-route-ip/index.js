@@ -5,14 +5,16 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
 function registerOriginFastRouteIpCommands(parent) {
     const cmd = parent
         .command('origin-fast-route-ip')
         .description('List origin fast-route IP ranges (read-only reference data)');
-    cmd
+    const listCmd = cmd
         .command('list')
-        .description('List origin fast-route IP ranges')
-        .action(async (opts, cmd) => {
+        .description('List origin fast-route IP ranges');
+    (0, option_map_1.registerMappings)('origin-fast-route-ip', 'list', []);
+    listCmd.action(async (opts, cmd) => {
         try {
             const globals = cmd.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);

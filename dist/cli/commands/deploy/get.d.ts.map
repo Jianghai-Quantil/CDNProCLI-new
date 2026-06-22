@@ -1,1 +1,1 @@
-{"version":3,"file":"get.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/deploy/get.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAMpC,wBAAgB,wBAAwB,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAsB9D"}
+{"version":3,"file":"get.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/deploy/get.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAOpC,wBAAgB,wBAAwB,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwB9D"}

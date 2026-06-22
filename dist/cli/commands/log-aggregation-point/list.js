@@ -5,14 +5,19 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
 function registerLogAggregationPointListCommand(parent) {
-    parent
+    const LOG_AGGREGATION_POINT_LIST_OPTIONS = [
+        { flag: '--search <term>', target: 'query', param: 'search', description: 'Keyword search' },
+    ];
+    (0, option_map_1.registerMappings)('log-aggregation-point', 'list', LOG_AGGREGATION_POINT_LIST_OPTIONS);
+    const cmd = parent
         .command('list')
-        .description('List log aggregation points')
-        .option('--search <term>', 'Keyword search')
-        .action(async (opts, cmd) => {
+        .description('List log aggregation points');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, LOG_AGGREGATION_POINT_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;

@@ -3,8 +3,11 @@ import { resolveCredentials, GlobalOptions } from '../../config';
 import { CDNProClient } from '../../../client/CDNProClient';
 import { printResult, OutputFormat } from '../../output';
 import { handleError } from '../../errors';
+import { registerMappings } from '../../option-map';
 
 export function registerAnnotationGetCommand(parent: Command): void {
+  registerMappings('annotation', 'get', []);
+
   parent
     .command('get <id>')
     .description('Get an annotation by ID')

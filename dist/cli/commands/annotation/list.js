@@ -1,46 +1,38 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ANNOTATION_LIST_OPTIONS = void 0;
 exports.registerAnnotationListCommand = registerAnnotationListCommand;
 const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
+exports.ANNOTATION_LIST_OPTIONS = [
+    { flag: '--from <date>', target: 'body', param: 'startDate', description: 'Start date (RFC 3339 UTC)' },
+    { flag: '--to <date>', target: 'body', param: 'endDate', description: 'End date (RFC 3339 UTC)' },
+    { flag: '--type <type>', target: 'body', param: 'type', description: 'Filter by type: client | configuration | operation' },
+    { flag: '--search <term>', target: 'body', param: 'search', description: 'Filter by ID or comment text' },
+    ...option_map_1.PAGINATION_OPTIONS,
+    option_map_1.ALL,
+];
 function registerAnnotationListCommand(parent) {
-    parent
+    const cmd = parent
         .command('list')
-        .description('List annotations')
-        .option('--from <date>', 'Start date (RFC 3339 UTC)')
-        .option('--to <date>', 'End date (RFC 3339 UTC)')
-        .option('--type <type>', 'Filter by type: client | configuration | operation')
-        .option('--search <term>', 'Filter by ID or comment text')
-        .option('--limit <n>', 'Page size [default: 10]')
-        .option('--offset <n>', 'Page offset [default: 0]')
-        .option('--all', 'Auto-paginate; implies --output jsonl')
-        .action(async (opts, cmd) => {
+        .description('List annotations');
+    (0, option_map_1.registerOptionsFromMapping)(cmd, exports.ANNOTATION_LIST_OPTIONS);
+    (0, option_map_1.registerMappings)('annotation', 'list', exports.ANNOTATION_LIST_OPTIONS);
+    cmd.action(async (opts, cmdObj) => {
         try {
-            const globals = cmd.optsWithGlobals();
+            const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            // annotation list uses POST /cdn/annotationsList with a filter body
-            const filters = {};
-            if (opts.from)
-                filters['startDate'] = opts.from;
-            if (opts.to)
-                filters['endDate'] = opts.to;
-            if (opts.type)
-                filters['type'] = opts.type;
-            if (opts.search)
-                filters['search'] = opts.search;
-            const reqOptions = {
-                ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
-                ...(globals.verbose ? { verbose: globals.verbose } : {}),
-            };
+            const { query, body, reqOptions } = (0, option_map_1.buildRequestFromMapping)(opts, exports.ANNOTATION_LIST_OPTIONS);
             if (opts.all) {
                 const limit = 100;
                 let offset = 0;
                 while (true) {
-                    const data = await client.annotations.list({ ...filters, limit, offset }, reqOptions);
+                    const data = await client.annotations.list({ ...(body ?? {}), ...query, limit, offset }, reqOptions);
                     const { items } = (0, output_1.buildMeta)(data);
                     if (items.length === 0)
                         break;
@@ -51,15 +43,15 @@ function registerAnnotationListCommand(parent) {
                 }
                 return;
             }
-            const limit = parseInt(opts.limit ?? '10', 10);
+            const limit = parseInt(String(opts.limit ?? '10'), 10);
             if (isNaN(limit) || limit < 1) {
                 throw new errors_1.CliError('VALIDATION', `--limit must be a positive integer, got: ${opts.limit}`);
             }
-            const offset = parseInt(opts.offset ?? '0', 10);
+            const offset = parseInt(String(opts.offset ?? '0'), 10);
             if (isNaN(offset) || offset < 0) {
                 throw new errors_1.CliError('VALIDATION', `--offset must be a non-negative integer, got: ${opts.offset}`);
             }
-            const data = await client.annotations.list({ ...filters, limit, offset }, reqOptions);
+            const data = await client.annotations.list({ ...(body ?? {}), ...query, limit, offset }, reqOptions);
             const { items, meta } = (0, output_1.buildMeta)(data);
             meta.limit = limit;
             meta.offset = offset;

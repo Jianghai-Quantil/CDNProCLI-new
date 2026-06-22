@@ -5,7 +5,9 @@ const config_1 = require("../../config");
 const CDNProClient_1 = require("../../../client/CDNProClient");
 const output_1 = require("../../output");
 const errors_1 = require("../../errors");
+const option_map_1 = require("../../option-map");
 function registerLogAggregationPointGetCommand(parent) {
+    (0, option_map_1.registerMappings)('log-aggregation-point', 'get', []);
     parent
         .command('get <id>')
         .description('Get a log aggregation point by ID')
