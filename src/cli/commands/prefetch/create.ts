@@ -115,7 +115,7 @@ export function registerPrefetchCreateCommand(parent: Command): void {
         await waitForTask(
           (id) => client.prefetches.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
           String(taskId),
-          { timeout, pollInterval, outputFormat: fmt },
+          { taskType: 'prefetch', timeout, pollInterval, outputFormat: fmt },
         );
         return;
       }

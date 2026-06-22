@@ -105,7 +105,7 @@ export function registerValidationCreateCommand(parent: Command): void {
         await waitForTask(
           (id) => client.validations.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
           String(taskId),
-          { timeout, pollInterval, outputFormat: fmt },
+          { taskType: 'validation', timeout, pollInterval, outputFormat: fmt },
         );
         return;
       }

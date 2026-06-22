@@ -2,23 +2,86 @@ import ora from 'ora';
 import { CliError } from './errors';
 import type { OutputFormat } from './output';
 
+export type TaskType = 'deployment' | 'purge' | 'prefetch' | 'validation';
+
 export interface WaitOptions {
-  /** Max wait time in seconds. Default varies by task type: 600 (deploy/purge/prefetch), 300 (validation). */
+  /** Task type determines how status, progress, and terminal states are interpreted. */
+  taskType: TaskType;
+  /** Max wait time in seconds. */
   timeout: number;
-  /** Poll frequency in seconds. Default varies by task type: 30 (deploy/purge/prefetch), 10 (validation). */
+  /** Poll frequency in seconds. */
   pollInterval: number;
   outputFormat?: OutputFormat;
 }
 
+interface TaskPollState {
+  status: string;
+  progressPercent: number | undefined;
+  statusDetails: string | undefined;
+}
+
+function extractPollState(taskType: TaskType, task: Record<string, unknown>): TaskPollState {
+  switch (taskType) {
+    case 'deployment':
+      return {
+        status: (task['status'] as string | undefined) ?? '',
+        progressPercent: undefined,
+        statusDetails: (task['statusDetails'] as string | undefined),
+      };
+    case 'purge':
+      return {
+        status: (task['status'] as string | undefined) ?? '',
+        progressPercent: (task['successRate'] as number | undefined),
+        statusDetails: undefined,
+      };
+    case 'prefetch': {
+      // metadata may be under 'metadata' (schema) or 'metaData' (example)
+      const meta = (task['metadata'] ?? task['metaData']) as Record<string, unknown> | undefined;
+      return {
+        status: (meta?.['status'] as string | undefined) ?? '',
+        progressPercent: (meta?.['successRate'] as number | undefined),
+        statusDetails: undefined,
+      };
+    }
+    case 'validation':
+      return {
+        status: (task['status'] as string | undefined) ?? '',
+        progressPercent: undefined,
+        statusDetails: (task['statusDetails'] as string | undefined),
+      };
+  }
+}
+
 /**
- * Poll a task until it reaches a terminal state (succeeded/failed) or the timeout is exceeded.
+ * Returns 'success' | 'failure' if the task reached a terminal state, or null if still running.
+ */
+function resolveTerminal(taskType: TaskType, state: TaskPollState): 'success' | 'failure' | null {
+  switch (taskType) {
+    case 'deployment':
+    case 'validation':
+      if (state.status === 'succeeded') return 'success';
+      if (state.status === 'failed') return 'failure';
+      return null;
+    case 'purge':
+    case 'prefetch':
+      // Purge and prefetch only have one terminal state: 'finished'
+      if (state.status === 'finished') return 'success';
+      return null;
+  }
+}
+
+/**
+ * Poll a task until it reaches a terminal state or the timeout is exceeded.
  *
  * In interactive TTY mode (table output): shows an ora spinner with live status text.
  * In non-interactive / JSON mode: emits one NDJSON line per poll plus a final "done" line.
  *
+ * On failure (deployment / validation), the error message includes {@code statusDetails}
+ * from the API response.
+ *
  * @param getTask  A function that resolves the current task state given the task ID.
  * @param taskId   The task identifier returned by the create call.
- * @param opts     Timeout, poll interval, and output format.
+ * @param opts     Task type, timeout, poll interval, and output format.
  * @returns        The final task object when the task succeeds.
  * @throws         CliError('ERROR')   if the task fails.
  * @throws         CliError('TIMEOUT') if the deadline is reached before a terminal state.
@@ -38,10 +101,10 @@ export async function waitForTask(
 
   while (Date.now() < deadline) {
     const task = (await getTask(taskId)) as Record<string, unknown>;
-    const status = (task['status'] as string | undefined) ?? '';
-    const pct = (task['progressPercent'] as number | undefined) ?? 0;
+    const state = extractPollState(opts.taskType, task);
+    const resolution = resolveTerminal(opts.taskType, state);
 
-    if (status === 'succeeded') {
+    if (resolution === 'success') {
       if (isInteractive) {
         spinner!.succeed(`Task ${taskId} completed`);
       } else {
@@ -52,8 +115,8 @@ export async function waitForTask(
       return task;
     }
 
-    if (status === 'failed') {
-      const reason = (task['failReason'] as string | undefined) ?? 'unknown reason';
+    if (resolution === 'failure') {
+      const reason = state.statusDetails ?? 'unknown reason';
       if (isInteractive) {
         spinner!.fail(`Task ${taskId} failed: ${reason}`);
       }
@@ -61,11 +124,18 @@ export async function waitForTask(
     }
 
     // Non-terminal state — update spinner or emit poll event
+    const progressText =
+      state.progressPercent != null ? ` ${state.progressPercent}%` : '';
     if (isInteractive) {
-      spinner!.text = `Task ${taskId}: ${status}${pct > 0 ? ` ${pct}%` : ''}`;
+      spinner!.text = `Task ${taskId}: ${state.status}${progressText}`;
     } else {
       process.stdout.write(
-        JSON.stringify({ event: 'poll', taskId, status, progressPercent: pct }) + '\n',
+        JSON.stringify({
+          event: 'poll',
+          taskId,
+          status: state.status,
+          progressPercent: state.progressPercent,
+        }) + '\n',
       );
     }
 

@@ -174,7 +174,7 @@ export function registerDeployCreateCommand(parent: Command): void {
         await waitForTask(
           (id) => client.deploymentTasks.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
           String(taskId),
-          { timeout, pollInterval, outputFormat: fmt },
+          { taskType: 'deployment', timeout, pollInterval, outputFormat: fmt },
         );
         return;
       }
