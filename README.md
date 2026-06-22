@@ -9,7 +9,7 @@ A TypeScript-based command-line interface and programmable library for the [CDN 
 - Auto-detects output format: human-readable tables in interactive terminals, JSON when piped
 - `--wait` flag on async operations (deploys, validations, purges, prefetches) polls until completion
 - OpenAPI schema introspection via `cdnpro schema` — useful for AI agents and tooling
-- Shell completion for bash, zsh, and fish
+- Shell completion for bash, zsh, fish, and PowerShell
 - Self-update via `cdnpro update` — detects global vs. local install and uses the right package manager
 - Importable TypeScript/Node.js library for programmatic use
 
@@ -100,7 +100,10 @@ These options are available on every command:
 ### Properties
 
 ```bash
-cdnpro property list [--search <keyword>]
+cdnpro property list [--search <keyword>] [--target <staging|production>]
+                     [--has-config <value>] [--sort-by <field>]
+                     [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
+                     [--report-range <scope>] [--all]
 cdnpro property get <id>
 cdnpro property create [--file <path>]   # --example prints an example body
 cdnpro property update <id> [--file <path>]
@@ -110,7 +113,9 @@ cdnpro property delete <id>
 #### Property versions
 
 ```bash
-cdnpro property-version list <propertyId>
+cdnpro property-version list <propertyId> [--search <term>] [--sort-by <field>]
+                                  [--sort-order <asc|desc>] [--limit <n>]
+                                  [--offset <n>] [--all]
 cdnpro property-version get <propertyId> <version>
 cdnpro property-version create <propertyId> [--file <path>]
 cdnpro property-version update <propertyId> <version> [--file <path>]
@@ -120,7 +125,10 @@ cdnpro property-version delete <propertyId> <version>
 ### Certificates
 
 ```bash
-cdnpro cert list
+cdnpro cert list [--search <keyword>] [--target <all|staging|production>]
+                 [--ca-only] [--auto-renew <LE|Off>] [--sort-by <field>]
+                 [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
+                 [--report-range <scope>] [--all]
 cdnpro cert get <id>
 cdnpro cert create [--file <path>]
 cdnpro cert update <id> [--file <path>]
@@ -138,7 +146,12 @@ cdnpro cert-version delete <certId> <version>
 ### Deployments
 
 ```bash
-cdnpro deploy list
+cdnpro deploy list [--from <date>] [--to <date>] [--target <staging|production>]
+                   [--status <waiting|inprogress|failed|succeeded>]
+                   [--property <id>] [--cert <id>] [--search <keyword>]
+                   [--task-ids <id,...>] [--sort-by <field>]
+                   [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
+                   [--report-range <scope>] [--all]
 cdnpro deploy get <id>
 cdnpro deploy create [--file <path>] [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
 ```
@@ -148,9 +161,14 @@ The `--wait` flag polls until the deployment succeeds or fails. Shows a spinner 
 ### Validation
 
 ```bash
-cdnpro validation list
+cdnpro validation list [--from <date>] [--to <date>] [--property <id>]
+                      [--property-version <version>]
+                      [--status <waiting|in-progress|failed|succeeded>]
+                      [--search <keyword>] [--sort-by <field>]
+                      [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
+                      [--report-range <scope>] [--all]
 cdnpro validation get <id>
-cdnpro validation create [--file <path>] [--wait]
+cdnpro validation create [--file <path>] [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
 ```
 
 ### Cache Operations
@@ -158,26 +176,36 @@ cdnpro validation create [--file <path>] [--wait]
 #### Purge
 
 ```bash
-cdnpro purge list
+cdnpro purge list [--from <date>] [--to <date>] [--target <staging|production>]
+                  [--action <invalidate|delete>] [--search <keyword>]
+                  [--max-success-rate <rate>] [--sort-by <field>]
+                  [--sort-order <asc|desc>] [--limit <n>] [--offset <n>]
+                  [--report-range <scope>] [--all]
 cdnpro purge get <id>
 cdnpro purge summary
 cdnpro purge tokens
-cdnpro purge create --target <staging|production> [--url <url>] [--dir <dir>] [--regex <pattern>] [--wait]
+cdnpro purge create --target <staging|production> [--url <url>] [--dir <dir>] [--regex <pattern>] [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
 ```
 
 #### Prefetch
 
 ```bash
-cdnpro prefetch list
+cdnpro prefetch list [--from <date>] [--to <date>] [--search <keyword>]
+                     [--sort-by <field>] [--sort-order <asc|desc>]
+                     [--limit <n>] [--offset <n>] [--report-range <scope>]
+                     [--all]
 cdnpro prefetch get <id>
 cdnpro prefetch tokens
-cdnpro prefetch create --url <url> [--name <name>] [--region <region>] [--start-time <datetime>] [--webhook <id>] [--wait]
+cdnpro prefetch create --url <url> [--name <name>] [--region <region>] [--start-time <datetime>] [--webhook <id>] [--wait] [--timeout <seconds>] [--poll-interval <seconds>]
 ```
 
 ### Edge Hostnames
 
 ```bash
-cdnpro edge-hostname list
+cdnpro edge-hostname list [--search <keyword>] [--has-beian]
+                          [--server-groups <groups>] [--sort-by <field>]
+                          [--sort-order <asc|desc>] [--limit <n>]
+                          [--offset <n>] [--report-range <scope>] [--all]
 cdnpro edge-hostname get <id>
 cdnpro edge-hostname create [--file <path>]
 cdnpro edge-hostname update <id> [--file <path>]
@@ -188,12 +216,14 @@ cdnpro edge-hostname delete <id>
 ### Hostnames
 
 ```bash
-cdnpro hostname list [--search <keyword>]
+cdnpro hostname list [--search <keyword>] [--target <all|staging|production>]
+                     [--limit <n>] [--offset <n>] [--report-range <scope>]
+                     [--all]
 cdnpro hostname get <hostname>
 ```
 
 ```bash
-cdnpro hostname-history list [--search <keyword>] [--from <date>] [--to <date>] [--target <staging|production|all>]
+cdnpro hostname-history list [--search <keyword>] [--from <date>] [--to <date>] [--target <staging|production|all>] [--limit <n>] [--offset <n>] [--report-range <scope>] [--all]
 cdnpro hostname-history get <hostname> [--from <date>] [--to <date>] [--target <staging|production|all>]
 ```
 
@@ -251,9 +281,13 @@ cdnpro report logs --from <date> --to <date> [--hostname <h>]
 ### Infrastructure & Reference Data
 
 ```bash
-cdnpro isp list                       # ISP information
-cdnpro client-region list             # Client regions
-cdnpro shield list|get                    # Origin shield locations
+cdnpro isp list [--search <keyword>] [--region-code <code>]
+                [--sort-order <asc|desc>]       # ISP information
+cdnpro client-region list [--search <keyword>] [--isp-code <code>]
+                          [--sort-order <asc|desc>]  # Client regions
+cdnpro shield list [--search <keyword>] [--used-in-properties]
+                   [--sort-by <field>] [--sort-order <asc|desc>]
+cdnpro shield get <id>                              # Origin shield locations
 cdnpro staging-server list            # Staging servers
 cdnpro public-ip list                 # Public IPs
 cdnpro origin-fast-route-ip list      # Origin fast-route IPs
@@ -263,13 +297,24 @@ cdnpro ip-details lookup --file <path>            # IP geolocation details
 ### Configuration & Management
 
 ```bash
-cdnpro log-config list|get|create|update|delete
-cdnpro log-aggregation-point list|get|create|update|delete|summary
-cdnpro annotation list|get|create|update|delete
-cdnpro webhook list|get|create|update|delete
-cdnpro secret list|get|create|update|delete
-cdnpro service-quota list|get
-cdnpro api-permission list|get|create|update|delete
+cdnpro log-config list [--search <keyword>] [--limit <n>] [--offset <n>]
+                       [--report-range <scope>] [--all]
+cdnpro log-config get|create|update|delete
+cdnpro log-aggregation-point list [--search <keyword>]
+cdnpro log-aggregation-point get|create|update|delete|summary
+cdnpro annotation list [--from <date>] [--to <date>] [--type <client|configuration|operation>]
+                       [--search <keyword>] [--limit <n>] [--offset <n>] [--all]
+cdnpro annotation get|create|update|delete
+cdnpro webhook list [--limit <n>] [--offset <n>] [--report-range <scope>] [--all]
+cdnpro webhook get|create|update|delete
+cdnpro secret list [--search <keyword>] [--limit <n>] [--offset <n>] [--all]
+cdnpro secret get|create|update|delete
+cdnpro service-quota list [--search <keyword>] [--status <active|suspended|trial|terminated>]
+                          [--allow-production <true|false>]
+                          [--advanced-features <features>] [--limit <n>]
+                          [--offset <n>] [--report-range <scope>] [--all]
+cdnpro service-quota get|update
+cdnpro api-permission get|create|update|delete
 cdnpro system-config get
 ```
 
@@ -278,10 +323,32 @@ cdnpro system-config get
 These commands require a reseller account.
 
 ```bash
-cdnpro admin customer list|get|create|update
-cdnpro admin contact list|get|create|update|delete
-cdnpro admin api-account list|get|create|update|delete
-cdnpro admin apicall list|get
+cdnpro admin customer list [--search <keyword>] [--ids <id,...>]
+                           [--status <active|suspended>]
+                           [--products <product,...>]
+                           [--regional-offices <office,...>]
+                           [--sort-by <field>] [--sort-order <asc|desc>]
+                           [--limit <n>] [--offset <n>] [--all]
+cdnpro admin customer get|create|update
+cdnpro admin contact list [--search <keyword>] [--ids <id,...>]
+                          [--status <active|suspended|pending>] [--is-master]
+                          [--sort-by <field>] [--sort-order <asc|desc>]
+                          [--limit <n>] [--offset <n>]
+                          [--report-range <scope>] [--all]
+cdnpro admin contact get|create|update|delete
+cdnpro admin api-account list [--search <keyword>] [--type <operator|read-only>]
+                              [--sort-by <field>] [--sort-order <asc|desc>]
+                              [--limit <n>] [--offset <n>]
+                              [--report-range <scope>] [--all]
+cdnpro admin api-account get|create|update|delete
+cdnpro admin apicall list [--from <date>] [--to <date>]
+                          [--method <GET|POST|PATCH|PUT|DELETE>]
+                          [--path <uri>] [--safe <true|false>]
+                          [--caller <name-or-id>]
+                          [--for-customer <id|none|any>]
+                          [--status <code,...>] [--before <apiRequestId>]
+                          [--limit <n>] [--report-range <scope>] [--all]
+cdnpro admin apicall get
 ```
 
 ### Schema Introspection
@@ -395,6 +462,8 @@ Notice: cdnpro-cli 2.1.0 is available (you have 2.0.0). Run `cdnpro update` to u
 cdnpro completion bash >> ~/.bashrc
 cdnpro completion zsh >> ~/.zshrc
 cdnpro completion fish > ~/.config/fish/completions/cdnpro.fish
+# PowerShell: follow the on-screen instructions from
+cdnpro completion powershell
 ```
 
 ## Programmatic Use
