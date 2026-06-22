@@ -90,10 +90,22 @@ class ApiCore {
             maxFreeSockets: 64,
             ...(this.serverInfo.family ? { family: this.serverInfo.family } : {}),
         };
-        this._agents = {
-            http: new http.Agent(base),
-            https: new https.Agent(base),
+        const httpAgent = new http.Agent(base);
+        const httpsAgent = new https.Agent(base);
+        // Proactively remove sockets from the free pool when the server
+        // closes an idle keep-alive connection (avoids "socket hang up").
+        const cleanupFreeSockets = (agent) => {
+            agent.on('free', (socket) => {
+                socket.once('close', () => {
+                    // Server closed idle socket → destroy it so the
+                    // agent removes it from the free pool.
+                    socket.destroy();
+                });
+            });
         };
+        cleanupFreeSockets(httpAgent);
+        cleanupFreeSockets(httpsAgent);
+        this._agents = { http: httpAgent, https: httpsAgent };
     }
     _resetAgents() {
         if (this._agents) {
@@ -176,7 +188,7 @@ class ApiCore {
             if (body)
                 console.log(body, '\n');
         }
-        return await new Promise((resolve, reject) => {
+        const doRequest = () => new Promise((resolve, reject) => {
             const request = scheme.request(options, (res) => {
                 const hdrTime = Date.now();
                 ctx._res = res;
@@ -270,6 +282,21 @@ class ApiCore {
                 request.write(body);
             request.end();
         });
+        try {
+            return await doRequest();
+        }
+        catch (err) {
+            const code = err.code;
+            if (code === 'ECONNRESET' || code === 'EPIPE') {
+                if (options.verbose > 0) {
+                    console.log(`Socket error (${code}), retrying with fresh connection…`);
+                }
+                this._resetAgents();
+                options.agent = (options.scheme === 'http' ? this._agents.http : this._agents.https);
+                return await doRequest();
+            }
+            throw err;
+        }
     }
     async request(method, path, req = {}) {
         const merged = { ...this.defaults, ...(req || {}) };

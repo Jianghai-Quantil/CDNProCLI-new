@@ -16,11 +16,27 @@ import {
 } from '../../option-map';
 
 export const VALIDATION_CREATE_OPTIONS: OptionMapping[] = [
+  { flag: '--property-id <id>', target: 'body', param: 'propertyId', description: 'Property ID to validate' },
+  { flag: '--property-version <version>', target: 'body', param: 'version', description: 'Property version to validate' },
+  { flag: '--name <name>', target: 'body', param: 'name', description: 'Friendly name for the validation task' },
+  { flag: '--webhook <id>', target: 'body', param: 'webhookId', description: 'Webhook ID to call on task completion' },
   ...FILE_EXAMPLE,
   { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until validation completes', boolean: true },
   { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 300]' },
   { flag: '--poll-interval <seconds>', target: 'cli-only', param: null, description: 'Poll frequency [default: 10]' },
 ];
+
+interface CreateOpts {
+  propertyId?: string;
+  propertyVersion?: string;
+  name?: string;
+  webhook?: string;
+  file?: string;
+  wait?: boolean;
+  timeout?: string;
+  pollInterval?: string;
+  example?: boolean;
+}
 
 export function registerValidationCreateCommand(parent: Command): void {
   const cmd = parent
@@ -30,7 +46,7 @@ export function registerValidationCreateCommand(parent: Command): void {
   registerOptionsFromMapping(cmd, VALIDATION_CREATE_OPTIONS);
   registerMappings('validation', 'create', VALIDATION_CREATE_OPTIONS);
 
-  cmd.action(async (opts: Record<string, unknown>, cmdObj: Command) => {
+  cmd.action(async (opts: CreateOpts, cmdObj: Command) => {
     try {
       if (opts.example) {
         const example = getExampleBody('/cdn/validations', 'post');
@@ -38,15 +54,29 @@ export function registerValidationCreateCommand(parent: Command): void {
         return;
       }
 
-      checkRequiredOption(opts.file as string | undefined, "--file <path>");
-
       const globals = cmdObj.optsWithGlobals<GlobalOptions>();
       const serverInfo = await resolveCredentials(globals);
       const client = new CDNProClient(serverInfo);
       const fmt = globals.output as OutputFormat | undefined;
-      const body = readBodyFile(opts.file as string);
-      const validation = validateBody('/cdn/validations', 'post', body);
-      if (!validation.valid) emitValidationError(validation, 'cdnpro validation create --example', globals.output);
+
+      let body: unknown;
+
+      if (opts.file) {
+        body = readBodyFile(opts.file);
+        const validation = validateBody('/cdn/validations', 'post', body);
+        if (!validation.valid) emitValidationError(validation, 'cdnpro validation create --example', globals.output);
+      } else {
+        checkRequiredOption(opts.propertyId, '--property-id <id>');
+        checkRequiredOption(opts.propertyVersion, '--property-version <version>');
+
+        const taskBody: Record<string, unknown> = {
+          propertyId: opts.propertyId,
+          version: opts.propertyVersion,
+        };
+        if (opts.name) taskBody['name'] = opts.name;
+        if (opts.webhook) taskBody['webhookId'] = opts.webhook;
+        body = taskBody;
+      }
 
       const reqOptions = {
         ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
@@ -61,22 +91,22 @@ export function registerValidationCreateCommand(parent: Command): void {
         const taskId = data['id'] as string | undefined;
         if (!taskId) throw new CliError('ERROR', 'Server did not return a task ID; cannot poll');
 
-        const timeout = parseInt((opts.timeout as string) ?? '300', 10);
+        const timeout = parseInt(opts.timeout ?? '300', 10);
         if (isNaN(timeout) || timeout < 1) {
           throw new CliError('VALIDATION', `--timeout must be a positive integer, got: ${opts.timeout}`);
         }
-        const pollInterval = parseInt((opts.pollInterval as string) ?? '10', 10);
+        const pollInterval = parseInt(opts.pollInterval ?? '10', 10);
         if (isNaN(pollInterval) || pollInterval < 1) {
           throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
         }
+
+        printCreateSuccess('Validation', 'validationId', String(taskId), fmt);
 
         await waitForTask(
           (id) => client.validations.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
           String(taskId),
           { timeout, pollInterval, outputFormat: fmt },
         );
-
-        printCreateSuccess('Validation', 'validationId', String(taskId), fmt);
         return;
       }
 

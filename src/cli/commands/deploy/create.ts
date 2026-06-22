@@ -169,13 +169,13 @@ export function registerDeployCreateCommand(parent: Command): void {
           throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
         }
 
+        printCreateSuccess('Deployment', 'deploymentId', String(taskId), fmt);
+
         await waitForTask(
           (id) => client.deploymentTasks.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
           String(taskId),
           { timeout, pollInterval, outputFormat: fmt },
         );
-
-        printCreateSuccess('Deployment', 'deploymentId', String(taskId), fmt);
         return;
       }
 

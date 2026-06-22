@@ -171,7 +171,7 @@ cdnpro purge create --target <staging|production> [--url <url>] [--dir <dir>] [-
 cdnpro prefetch list
 cdnpro prefetch get <id>
 cdnpro prefetch tokens
-cdnpro prefetch create --target <staging|production> [--url <url>] [--wait]
+cdnpro prefetch create --url <url> [--name <name>] [--region <region>] [--start-time <datetime>] [--webhook <id>] [--wait]
 ```
 
 ### Edge Hostnames

@@ -146,13 +146,13 @@ export function registerPurgeCreateCommand(parent: Command): void {
           throw new CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
         }
 
+        printCreateSuccess('Purge', 'purgeId', String(taskId), fmt);
+
         await waitForTask(
           (id) => client.purges.get(id, { verbose: globals.verbose ?? 0 }) as Promise<unknown>,
           String(taskId),
           { timeout, pollInterval, outputFormat: fmt },
         );
-
-        printCreateSuccess('Purge', 'purgeId', String(taskId), fmt);
         return;
       }
 

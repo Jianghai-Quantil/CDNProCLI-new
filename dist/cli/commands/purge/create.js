@@ -114,8 +114,8 @@ function registerPurgeCreateCommand(parent) {
                 if (isNaN(pollInterval) || pollInterval < 1) {
                     throw new errors_2.CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
                 }
-                await (0, wait_1.waitForTask)((id) => client.purges.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
                 (0, output_1.printCreateSuccess)('Purge', 'purgeId', String(taskId), fmt);
+                await (0, wait_1.waitForTask)((id) => client.purges.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
                 return;
             }
             (0, output_1.printCreateSuccess)('Purge', 'purgeId', id, fmt);

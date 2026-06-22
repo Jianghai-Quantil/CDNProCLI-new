@@ -13,6 +13,10 @@ const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
 const option_map_1 = require("../../option-map");
 exports.VALIDATION_CREATE_OPTIONS = [
+    { flag: '--property-id <id>', target: 'body', param: 'propertyId', description: 'Property ID to validate' },
+    { flag: '--property-version <version>', target: 'body', param: 'version', description: 'Property version to validate' },
+    { flag: '--name <name>', target: 'body', param: 'name', description: 'Friendly name for the validation task' },
+    { flag: '--webhook <id>', target: 'body', param: 'webhookId', description: 'Webhook ID to call on task completion' },
     ...option_map_1.FILE_EXAMPLE,
     { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until validation completes', boolean: true },
     { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 300]' },
@@ -31,15 +35,30 @@ function registerValidationCreateCommand(parent) {
                 process.stdout.write(JSON.stringify(example, null, 2) + '\n');
                 return;
             }
-            (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
             const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const body = (0, util_1.readBodyFile)(opts.file);
-            const validation = (0, validate_1.validateBody)('/cdn/validations', 'post', body);
-            if (!validation.valid)
-                (0, util_1.emitValidationError)(validation, 'cdnpro validation create --example', globals.output);
+            let body;
+            if (opts.file) {
+                body = (0, util_1.readBodyFile)(opts.file);
+                const validation = (0, validate_1.validateBody)('/cdn/validations', 'post', body);
+                if (!validation.valid)
+                    (0, util_1.emitValidationError)(validation, 'cdnpro validation create --example', globals.output);
+            }
+            else {
+                (0, util_1.checkRequiredOption)(opts.propertyId, '--property-id <id>');
+                (0, util_1.checkRequiredOption)(opts.propertyVersion, '--property-version <version>');
+                const taskBody = {
+                    propertyId: opts.propertyId,
+                    version: opts.propertyVersion,
+                };
+                if (opts.name)
+                    taskBody['name'] = opts.name;
+                if (opts.webhook)
+                    taskBody['webhookId'] = opts.webhook;
+                body = taskBody;
+            }
             const reqOptions = {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
@@ -59,8 +78,8 @@ function registerValidationCreateCommand(parent) {
                 if (isNaN(pollInterval) || pollInterval < 1) {
                     throw new errors_2.CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
                 }
-                await (0, wait_1.waitForTask)((id) => client.validations.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
                 (0, output_1.printCreateSuccess)('Validation', 'validationId', String(taskId), fmt);
+                await (0, wait_1.waitForTask)((id) => client.validations.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
                 return;
             }
             (0, output_1.printCreateSuccess)('Validation', 'validationId', id, fmt);

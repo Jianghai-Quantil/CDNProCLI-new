@@ -13,6 +13,11 @@ const synthesize_1 = require("../../../schema/synthesize");
 const validate_1 = require("../../../schema/validate");
 const option_map_1 = require("../../option-map");
 exports.PREFETCH_CREATE_OPTIONS = [
+    { flag: '--name <name>', target: 'body', param: 'name', description: 'Friendly name for the prefetch request' },
+    { flag: '--url <url>', target: 'body', param: 'fileList.url', description: 'URL to prefetch (must begin with http/https); repeatable', repeatable: true },
+    { flag: '--region <region>', target: 'body', param: 'regions', description: 'Region to prefetch from; repeatable', repeatable: true },
+    { flag: '--start-time <datetime>', target: 'body', param: 'startTime', description: 'RFC 3339 UTC datetime when prefetch should begin' },
+    { flag: '--webhook <id>', target: 'body', param: 'webhook', description: 'Webhook ID to call on completion' },
     ...option_map_1.FILE_EXAMPLE,
     { flag: '--wait', target: 'cli-only', param: null, description: 'Poll until prefetch completes', boolean: true },
     { flag: '--timeout <seconds>', target: 'cli-only', param: null, description: 'Max wait time [default: 600]' },
@@ -31,15 +36,35 @@ function registerPrefetchCreateCommand(parent) {
                 process.stdout.write(JSON.stringify(example, null, 2) + '\n');
                 return;
             }
-            (0, util_1.checkRequiredOption)(opts.file, "--file <path>");
             const globals = cmdObj.optsWithGlobals();
             const serverInfo = await (0, config_1.resolveCredentials)(globals);
             const client = new CDNProClient_1.CDNProClient(serverInfo);
             const fmt = globals.output;
-            const body = (0, util_1.readBodyFile)(opts.file);
-            const validation = (0, validate_1.validateBody)('/cdn/prefetches', 'post', body);
-            if (!validation.valid)
-                (0, util_1.emitValidationError)(validation, 'cdnpro prefetch create --example', globals.output);
+            let body;
+            if (opts.file) {
+                body = (0, util_1.readBodyFile)(opts.file);
+                const validation = (0, validate_1.validateBody)('/cdn/prefetches', 'post', body);
+                if (!validation.valid)
+                    (0, util_1.emitValidationError)(validation, 'cdnpro prefetch create --example', globals.output);
+            }
+            else {
+                const urls = opts.url ?? [];
+                if (urls.length === 0) {
+                    throw new errors_2.CliError('VALIDATION', 'At least one --url is required (or use --file)');
+                }
+                const prefetchBody = {
+                    fileList: urls.map(u => ({ url: u })),
+                };
+                if (opts.name)
+                    prefetchBody['name'] = opts.name;
+                if (opts.region)
+                    prefetchBody['regions'] = opts.region;
+                if (opts.startTime)
+                    prefetchBody['startTime'] = opts.startTime;
+                if (opts.webhook)
+                    prefetchBody['webhook'] = opts.webhook;
+                body = prefetchBody;
+            }
             const reqOptions = {
                 ...(globals.onBehalfOf ? { onBehalfOf: globals.onBehalfOf } : {}),
                 ...(globals.verbose ? { verbose: globals.verbose } : {}),
@@ -59,8 +84,8 @@ function registerPrefetchCreateCommand(parent) {
                 if (isNaN(pollInterval) || pollInterval < 1) {
                     throw new errors_2.CliError('VALIDATION', `--poll-interval must be a positive integer, got: ${opts.pollInterval}`);
                 }
-                await (0, wait_1.waitForTask)((id) => client.prefetches.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
                 (0, output_1.printCreateSuccess)('Prefetch', 'prefetchId', String(taskId), fmt);
+                await (0, wait_1.waitForTask)((id) => client.prefetches.get(id, { verbose: globals.verbose ?? 0 }), String(taskId), { timeout, pollInterval, outputFormat: fmt });
                 return;
             }
             (0, output_1.printCreateSuccess)('Prefetch', 'prefetchId', id, fmt);
