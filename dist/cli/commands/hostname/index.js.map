@@ -1,1 +1,0 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../src/cli/commands/hostname/index.ts"],"names":[],"mappings":";;AAIA,4DAOC;AAVD,iCAAqD;AACrD,+BAAmD;AAEnD,SAAgB,wBAAwB,CAAC,MAAe;IACtD,MAAM,GAAG,GAAG,MAAM;SACf,OAAO,CAAC,UAAU,CAAC;SACnB,WAAW,CAAC,sBAAsB,CAAC,CAAC;IAEvC,IAAA,kCAA2B,EAAC,GAAG,CAAC,CAAC;IACjC,IAAA,gCAA0B,EAAC,GAAG,CAAC,CAAC;AAClC,CAAC"}

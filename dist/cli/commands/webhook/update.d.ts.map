@@ -1,1 +1,0 @@
-{"version":3,"file":"update.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/webhook/update.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAOpC,OAAO,EAAE,aAAa,EAAmF,MAAM,kBAAkB,CAAC;AAElI,eAAO,MAAM,sBAAsB,EAAE,aAAa,EAA2C,CAAC;AAQ9F,wBAAgB,4BAA4B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CA6ClE"}

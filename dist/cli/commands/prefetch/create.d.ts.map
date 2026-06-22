@@ -1,1 +1,0 @@
-{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/prefetch/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAUpC,OAAO,EACL,aAAa,EAId,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,uBAAuB,EAAE,aAAa,EAUlD,CAAC;AAeF,wBAAgB,6BAA6B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAqFnE"}

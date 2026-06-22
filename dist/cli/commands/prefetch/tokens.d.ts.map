@@ -1,1 +1,0 @@
-{"version":3,"file":"tokens.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/prefetch/tokens.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAKpC,OAAO,EACL,aAAa,EAId,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,uBAAuB,EAAE,aAAa,EAElD,CAAC;AAEF,wBAAgB,6BAA6B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CA4BnE"}

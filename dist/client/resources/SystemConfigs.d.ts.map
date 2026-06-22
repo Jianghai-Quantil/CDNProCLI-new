@@ -1,1 +1,0 @@
-{"version":3,"file":"SystemConfigs.d.ts","sourceRoot":"","sources":["../../../src/client/resources/SystemConfigs.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,cAAc,EAAE,MAAM,YAAY,CAAC;AAErD,qBAAa,aAAa;IACxB,OAAO,CAAC,GAAG,CAAU;gBAET,OAAO,EAAE,OAAO;IAI5B,GAAG,CAAC,UAAU,GAAE,cAAmB;IAInC,MAAM,CAAC,SAAS,EAAE,OAAO,EAAE,UAAU,GAAE,cAAmB;CAI3D"}

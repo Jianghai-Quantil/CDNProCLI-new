@@ -1,1 +1,0 @@
-{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/edge-hostname/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAKpC,OAAO,EAAE,aAAa,EAAyD,MAAM,kBAAkB,CAAC;AAExG,eAAO,MAAM,4BAA4B,EAAE,aAAa,EASvD,CAAC;AAOF,wBAAgB,iCAAiC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CA4CvE"}

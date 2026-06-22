@@ -1,1 +1,0 @@
-{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/cert-version/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAKpC,OAAO,EAAE,aAAa,EAAyD,MAAM,kBAAkB,CAAC;AAExG,eAAO,MAAM,2BAA2B,EAAE,aAAa,EAAc,CAAC;AAMtE,wBAAgB,gCAAgC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwCtE"}

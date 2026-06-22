@@ -1,1 +1,0 @@
-{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/log-aggregation-point/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAKpC,OAAO,EAAE,aAAa,EAAyD,MAAM,kBAAkB,CAAC;AAExG,eAAO,MAAM,oCAAoC,EAAE,aAAa,EAAc,CAAC;AAM/E,wBAAgB,wCAAwC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwC9E"}

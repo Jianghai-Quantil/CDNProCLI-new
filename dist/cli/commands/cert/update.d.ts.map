@@ -1,1 +1,0 @@
-{"version":3,"file":"update.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/cert/update.ts"],"names":[],"mappings":"AAEA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAQpC,OAAO,EACL,aAAa,EAKd,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,mBAAmB,EAAE,aAAa,EAsB9C,CAAC;AAmDF,wBAAgB,yBAAyB,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAuI/D"}

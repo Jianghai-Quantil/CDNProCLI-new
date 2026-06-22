@@ -1,1 +1,0 @@
-{"version":3,"file":"ResourceSummary.d.ts","sourceRoot":"","sources":["../../../src/client/resources/ResourceSummary.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,cAAc,EAAE,MAAM,YAAY,CAAC;AAErD,qBAAa,eAAe;IAC1B,OAAO,CAAC,GAAG,CAAU;gBAET,OAAO,EAAE,OAAO;IAI5B,aAAa,CAAC,UAAU,EAAE,MAAM,GAAG,MAAM,EAAE,UAAU,GAAE,cAAmB;CAM3E"}

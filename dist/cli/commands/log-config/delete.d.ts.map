@@ -1,1 +1,0 @@
-{"version":3,"file":"delete.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/log-config/delete.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAKpC,OAAO,EAAE,aAAa,EAAyD,MAAM,kBAAkB,CAAC;AAExG,eAAO,MAAM,yBAAyB,EAAE,aAAa,EAAc,CAAC;AAMpE,wBAAgB,8BAA8B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwCpE"}

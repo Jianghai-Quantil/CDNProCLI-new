@@ -1,1 +1,0 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../src/cli/commands/cert-version/index.ts"],"names":[],"mappings":";;AAIA,kEAOC;AAVD,+BAAsD;AACtD,qCAA4D;AAE5D,SAAgB,2BAA2B,CAAC,MAAe;IACzD,MAAM,WAAW,GAAG,MAAM;SACvB,OAAO,CAAC,cAAc,CAAC;SACvB,WAAW,CAAC,wCAAwC,CAAC,CAAC;IAEzD,IAAA,mCAA6B,EAAC,WAAW,CAAC,CAAC;IAC3C,IAAA,yCAAgC,EAAC,WAAW,CAAC,CAAC;AAChD,CAAC"}

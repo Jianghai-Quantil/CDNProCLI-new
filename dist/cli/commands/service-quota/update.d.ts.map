@@ -1,1 +1,0 @@
-{"version":3,"file":"update.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/service-quota/update.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAOpC,OAAO,EACL,aAAa,EAKd,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,4BAA4B,EAAE,aAAa,EAGvD,CAAC;AAEF,wBAAgB,iCAAiC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CA8CvE"}

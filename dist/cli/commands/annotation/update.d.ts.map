@@ -1,1 +1,0 @@
-{"version":3,"file":"update.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/annotation/update.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAOpC,OAAO,EACL,aAAa,EAKd,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,yBAAyB,EAAE,aAAa,EAGpD,CAAC;AAEF,wBAAgB,+BAA+B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CA8CrE"}

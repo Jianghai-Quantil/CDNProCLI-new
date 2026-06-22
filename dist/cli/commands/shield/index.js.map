@@ -1,1 +1,0 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../src/cli/commands/shield/index.ts"],"names":[],"mappings":";;AAIA,wDAOC;AAVD,iCAAmD;AACnD,+BAAiD;AAEjD,SAAgB,sBAAsB,CAAC,MAAe;IACpD,MAAM,GAAG,GAAG,MAAM;SACf,OAAO,CAAC,QAAQ,CAAC;SACjB,WAAW,CAAC,iCAAiC,CAAC,CAAC;IAElD,IAAA,gCAAyB,EAAC,GAAG,CAAC,CAAC;IAC/B,IAAA,8BAAwB,EAAC,GAAG,CAAC,CAAC;AAChC,CAAC"}

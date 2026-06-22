@@ -1,1 +1,0 @@
-{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/api-permission/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAQpC,OAAO,EACL,aAAa,EAId,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,6BAA6B,EAAE,aAAa,EAExD,CAAC;AAEF,wBAAgB,kCAAkC,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwCxE"}

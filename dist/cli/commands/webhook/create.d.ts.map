@@ -1,1 +1,0 @@
-{"version":3,"file":"create.d.ts","sourceRoot":"","sources":["../../../../src/cli/commands/webhook/create.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAQpC,OAAO,EACL,aAAa,EAId,MAAM,kBAAkB,CAAC;AAE1B,eAAO,MAAM,sBAAsB,EAAE,aAAa,EAEjD,CAAC;AAEF,wBAAgB,4BAA4B,CAAC,MAAM,EAAE,OAAO,GAAG,IAAI,CAwClE"}
