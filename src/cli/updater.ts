@@ -294,11 +294,15 @@ export function runUpdateCommand(cmd: UpdateCommand): Promise<number> {
 
 /**
  * Check the registry at most once per CHECK_INTERVAL_MS.
- * If a newer version is available, stash it so `printUpdateNotice` can
+ * If a newer version is already known, stash it so `printUpdateNotice` can
  * display it after the main command finishes.
  *
- * This function fires-and-forgets; it must not block the main command.
- * The promise is intentionally not awaited by the caller.
+ * The registry request is NOT made in this process. An in-process request
+ * (even fire-and-forget) delays process exit: Node waits for any pending
+ * getaddrinfo() DNS lookup to finish before the process can exit, so a slow
+ * resolver turns every command — even `--version` — into a multi-second wait.
+ * Instead, a detached worker (update-check-worker.js) does the fetch and
+ * writes the result to the cache; it is picked up on the next run.
  */
 let _pendingLatest: string | null = null;
 
@@ -306,29 +310,44 @@ export function scheduleUpdateCheck(): void {
   // Only run in interactive sessions — not in piped / agent mode.
   if (!process.stdout.isTTY) return;
 
-  const now = Date.now();
-  const lastCheck = notifierStore.get('lastCheckTime') ?? 0;
-  if (now - lastCheck < CHECK_INTERVAL_MS) {
-    // Use the cached value from the last successful check
-    const cached = notifierStore.get('latestKnownVersion') ?? '';
-    if (cached && isNewer(CURRENT_VERSION, cached)) {
-      _pendingLatest = cached;
-    }
-    return;
+  // Use whatever the last successful check discovered.
+  const cached = notifierStore.get('latestKnownVersion') ?? '';
+  if (cached && isNewer(CURRENT_VERSION, cached)) {
+    _pendingLatest = cached;
   }
 
-  // Kick off a background fetch — do not await
-  fetchLatestVersion()
-    .then((latest) => {
-      notifierStore.set('lastCheckTime', now);
-      notifierStore.set('latestKnownVersion', latest);
-      if (isNewer(CURRENT_VERSION, latest)) {
-        _pendingLatest = latest;
-      }
-    })
-    .catch(() => {
-      // Network failure — silently ignore; do not disrupt the command.
+  const now = Date.now();
+  const lastCheck = notifierStore.get('lastCheckTime') ?? 0;
+  if (now - lastCheck < CHECK_INTERVAL_MS) return;
+
+  // Stamp *before* the check so an unreachable registry or a missing package
+  // is retried at most once per interval, not on every command.
+  notifierStore.set('lastCheckTime', now);
+
+  // The worker only exists in the compiled build (not under tsx / ts-node).
+  const worker = path.join(__dirname, 'update-check-worker.js');
+  if (!fs.existsSync(worker)) return;
+
+  try {
+    const child = spawn(process.execPath, [worker], {
+      detached: true,
+      stdio: 'ignore',
     });
+    child.on('error', () => { /* best effort */ });
+    child.unref();
+  } catch {
+    // Could not spawn — silently ignore; never disrupt the command.
+  }
+}
+
+/** Entry point for the detached worker: fetch the latest version and cache it. */
+export async function runUpdateCheckWorker(): Promise<void> {
+  try {
+    const latest = await fetchLatestVersion();
+    notifierStore.set('latestKnownVersion', latest);
+  } catch {
+    // Network failure / 404 — ignore; lastCheckTime is already stamped.
+  }
 }
 
 /**
