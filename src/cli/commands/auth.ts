@@ -9,6 +9,7 @@ import {
   resolveCredentials,
   promptInput,
   Profile,
+  GlobalOptions,
 } from '../config';
 import { CDNProClient } from '../../client/CDNProClient';
 import { handleError, CliError } from '../errors';
@@ -23,9 +24,13 @@ export function registerAuthCommands(parent: Command): void {
     .command('login')
     .description('Save API credentials to a named profile')
     .option('-p, --profile <name>', 'Profile name to create or overwrite', 'default')
-    .action(async (opts: { profile: string }) => {
+    .action(async (opts: { profile?: string }, cmd: Command) => {
       try {
-        console.log(`Configuring profile: ${chalk.bold(opts.profile)}\n`);
+        // The root command owns the same -p/--profile flag and consumes it
+        // before this command does, so the local option stays at its default.
+        // optsWithGlobals() is the name the user actually passed.
+        const profileName = cmd.optsWithGlobals<GlobalOptions>().profile ?? opts.profile ?? 'default';
+        console.log(`Configuring profile: ${chalk.bold(profileName)}\n`);
 
         const host = await promptInput('API host', false, 'ngapi.cdnetworks.com');
         const user = await promptInput('Username');
@@ -45,13 +50,13 @@ export function registerAuthCommands(parent: Command): void {
         const existingBefore = listProfiles();
         const isFirstProfile = Object.keys(existingBefore).length === 0;
 
-        await saveProfile(opts.profile, profile);
+        await saveProfile(profileName, profile);
 
-        if (isFirstProfile || opts.profile === 'default') {
-          setDefaultProfile(opts.profile);
+        if (isFirstProfile || profileName === 'default') {
+          setDefaultProfile(profileName);
         }
 
-        console.log(chalk.green(`\nProfile "${opts.profile}" saved.`));
+        console.log(chalk.green(`\nProfile "${profileName}" saved.`));
       } catch (err) {
         handleError(err);
       }
@@ -62,14 +67,15 @@ export function registerAuthCommands(parent: Command): void {
     .command('logout')
     .description('Remove a credential profile')
     .option('-p, --profile <name>', 'Profile to remove', 'default')
-    .action(async (opts: { profile: string }) => {
+    .action(async (opts: { profile?: string }, cmd: Command) => {
       try {
+        const profileName = cmd.optsWithGlobals<GlobalOptions>().profile ?? opts.profile ?? 'default';
         const profiles = listProfiles();
-        if (!profiles[opts.profile]) {
-          throw new CliError('CONFIG_ERROR', `Profile "${opts.profile}" not found.`);
+        if (!profiles[profileName]) {
+          throw new CliError('CONFIG_ERROR', `Profile "${profileName}" not found.`);
         }
-        await deleteProfile(opts.profile);
-        console.log(chalk.green(`Profile "${opts.profile}" removed.`));
+        await deleteProfile(profileName);
+        console.log(chalk.green(`Profile "${profileName}" removed.`));
       } catch (err) {
         handleError(err);
       }
@@ -127,13 +133,16 @@ export function registerAuthCommands(parent: Command): void {
     .option('--host <host>', 'Override API host')
     .option('--user <user>', 'Override username')
     .option('--secret-key <key>', 'Override secret key')
-    .action(async (opts: { profile?: string; host?: string; user?: string; secretKey?: string }) => {
+    .action(async (_opts: { profile?: string; host?: string; user?: string; secretKey?: string }, cmd: Command) => {
       try {
+        // Same flag collision as login: --profile/--host/--user/--secret-key
+        // are defined on the root command, which consumes them.
+        const globals = cmd.optsWithGlobals<GlobalOptions>();
         const serverInfo = await resolveCredentials({
-          profile: opts.profile,
-          host: opts.host,
-          user: opts.user,
-          secretKey: opts.secretKey,
+          profile: globals.profile,
+          host: globals.host,
+          user: globals.user,
+          secretKey: globals.secretKey,
         });
 
         const client = new CDNProClient(serverInfo);
