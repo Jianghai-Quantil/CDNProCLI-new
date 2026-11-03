@@ -66,16 +66,27 @@ export function registerAuthCommands(parent: Command): void {
   auth
     .command('logout')
     .description('Remove a credential profile')
-    .option('-p, --profile <name>', 'Profile to remove', 'default')
+    .option('-p, --profile <name>', 'Profile to remove (active default profile if omitted)')
     .action(async (opts: { profile?: string }, cmd: Command) => {
       try {
-        const profileName = cmd.optsWithGlobals<GlobalOptions>().profile ?? opts.profile ?? 'default';
+        // No --profile means the active default (the one marked in `auth list`),
+        // which is not always the profile literally named "default".
+        const activeDefault = getDefaultProfile();
+        const profileName = cmd.optsWithGlobals<GlobalOptions>().profile ?? opts.profile ?? activeDefault;
         const profiles = listProfiles();
         if (!profiles[profileName]) {
           throw new CliError('CONFIG_ERROR', `Profile "${profileName}" not found.`);
         }
         await deleteProfile(profileName);
         console.log(chalk.green(`Profile "${profileName}" removed.`));
+
+        if (profileName === activeDefault) {
+          const remaining = Object.keys(listProfiles());
+          if (remaining.length > 0) {
+            setDefaultProfile(remaining[0]);
+            console.log(chalk.green(`Default profile set to "${remaining[0]}".`));
+          }
+        }
       } catch (err) {
         handleError(err);
       }
