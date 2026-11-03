@@ -13,7 +13,11 @@
   ],
   "scripts": {
     "build": "npm run generate:types && tsc",
-    "generate:types": "openapi-typescript openapi.json -o src/types/api.ts",
+    "fetch:spec": "node scripts/fetch-openapi.js",
+    "update:spec": "node scripts/fetch-openapi.js --force && npm run generate:types",
+    "generate:types": "npm run fetch:spec && openapi-typescript openapi.json -o src/types/api.ts",
+    "predev": "npm run fetch:spec",
+    "prepack": "npm run fetch:spec",
     "dev": "tsx src/cli/main.ts",
     "test": "node --test dist/test/**/*.js"
   },

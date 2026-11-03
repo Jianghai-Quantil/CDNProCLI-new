@@ -33,7 +33,7 @@ cdnpro --version
 git clone https://github.com/mileweb/CDNPro-CLI.git
 cd CDNPro-CLI
 npm install
-npm run build
+npm run build   # downloads openapi.json on first run, so network access is required
 npm install -g .
 ```
 
@@ -609,7 +609,7 @@ while (result.status !== 'succeeded' && result.status !== 'failed') {
 
 ## OpenAPI Spec (`openapi.json`)
 
-`openapi.json` (root of the repo) is the **single source of truth** for the CDN Pro API contract. It drives several layers of the CLI:
+The CDN Pro API contract lives in the [docs-content-cdn](https://github.com/mileweb/docs-content-cdn/blob/master/en/apispec/openapi.json) repo (`en/apispec/openapi.json`, `master` branch). It is **not committed to this repo**: `scripts/fetch-openapi.js` downloads it to `openapi.json` in the repo root (git-ignored) and saves the server's ETag next to it (`openapi.json.etag`, also git-ignored). On later builds it sends that ETag back, so the file is only re-downloaded when it has changed upstream. It drives several layers of the CLI:
 
 | Consumer | How | Where |
 |---|---|---|
@@ -618,18 +618,32 @@ while (result.status !== 'succeeded' && result.status !== 'failed') {
 | **Example body synthesis** | `src/schema/synthesize.ts` walks the spec to produce a filled-in request body for `--example` flags | All create/update commands |
 | **Schema introspection** | `src/cli/commands/schema.ts` reads the spec directly to show request/response details for `cdnpro schema <resource> <operation>` | `cdnpro schema` command |
 | **CLI flag → API parameter mapping** | Each command file exports an `OptionMapping[]` array that maps CLI flags to their API targets (query params, headers, body properties). `registerMappings()` stores this for schema introspection; `registerOptionsFromMapping()` registers Commander options from the same source. | `src/cli/option-map.ts` + every command file |
-| **Bundled artifact** | The spec is imported by `loader.ts`, so `tsc` embeds it inside `dist/` — no separate file copy needed | `npm run build` |
+| **Packaged artifact** | `dist/` loads the spec at runtime with `require('../../openapi.json')` (it is **not** embedded in `dist/`), so the downloaded file must sit at the package root. `package.json` `files` lists it, so it ships in the published package | `npm pack` / `npm publish` |
 
 The spec is loaded once and cached in memory the first time any schema function is called; subsequent calls within the same process reuse the cached object.
 
-### After updating `openapi.json`
+### Getting and refreshing the spec
 
-**End users:** run `cdnpro update`. The published package already includes regenerated types and a prebuilt `dist/`; no manual steps are needed.
+| Command | What it does |
+|---|---|
+| `npm run build` / `npm run dev` | Fetches the spec if it is missing or changed upstream (conditional request using the saved ETag), then builds. Needs network access the first time. |
+| `npm run fetch:spec` | Just the fetch step. |
+| `npm run update:spec` | Forces an unconditional re-download (ignores the saved ETag), then regenerates `src/types/api.ts`. |
+
+- An unchanged spec costs one small request that returns `304 Not Modified`; nothing is downloaded or rewritten. The saved ETag is ignored if it was recorded for a different URL or if `openapi.json` is missing.
+- If the check or download fails and `openapi.json` already exists, the existing copy is kept (with a warning), so offline builds still work. If it does not exist, the build stops with an error.
+- `npm pack` / `npm publish` run a `prepack` hook that fetches the spec first, so the package always contains a current `openapi.json`. If the spec is missing and cannot be downloaded, packing aborts instead of producing a broken package. (`prepack` does not run `npm run build`; build before publishing so `dist/` is up to date.)
+- The source follows the `master` branch, so every build picks up the latest published spec. To use a different location, set `OPENAPI_SPEC_URL` (a `github.com/.../blob/...` page URL is accepted and converted to the raw URL automatically).
+- `src/types/api.ts` is still committed and is regenerated on every build, so it will show up as modified after a build that picked up a newer spec.
+
+### After the spec changes
+
+**End users:** run `cdnpro update`. The published package already includes the spec, regenerated types and a prebuilt `dist/`; no manual steps are needed.
 
 **Contributors** working on the source must do the following before publishing a new release:
 
-1. **Regenerate types** — run `npm run generate:types` to overwrite `src/types/api.ts`. Never edit that file by hand; it will be overwritten.
-2. **Rebuild** — run `npm run build` so the updated spec is compiled into `dist/`.
+1. **Refresh the spec and regenerate types** — run `npm run update:spec`. This re-downloads `openapi.json` and overwrites `src/types/api.ts`. Never edit that file by hand; it will be overwritten.
+2. **Rebuild** — run `npm run build` so `dist/` is compiled against the updated spec.
 3. **Update `OPERATION_MAP`** if you added or removed endpoints — open `src/schema/query.ts` and add/remove entries so the new operations are reachable via `cdnpro schema` and `--example`.
 4. **Add `OptionMapping[]`** for any new command — each command file exports its CLI flags as an `OptionMapping[]` array and calls `registerMappings()` so `cdnpro schema` can annotate parameters with `cliFlag` and `bodyCliFlags`. Use shared presets (`PAGINATION_OPTIONS`, `SORT_OPTIONS`, `FILE_EXAMPLE`, `CONFIRM`, etc.) from `src/cli/option-map.ts`.
 5. **Run tests** — run `npm test` to catch any type errors or broken validations introduced by the spec change.
@@ -644,8 +658,8 @@ npm install
 npm run dev -- auth status
 npm run dev -- property list
 
-# Generate TypeScript types from openapi.json
-npm run generate:types
+# Re-download openapi.json and regenerate TypeScript types
+npm run update:spec
 
 # Build
 npm run build
