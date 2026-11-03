@@ -173,7 +173,7 @@ export class ApiCore {
         Authorization: `Basic ${authData}`,
         Date: dateStr,
         'Accept-Encoding': 'gzip',
-        'User-Agent': 'CDNProCLI-js/2.0',
+        'User-Agent': 'CDNPro-CLI-js/2.0',
       },
       timeout: 10000,
       abortOnError: true,

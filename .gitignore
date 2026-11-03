@@ -2,3 +2,6 @@ node_modules/
 .claude
 .local.env
 dist/
+/openapi.json
+/openapi.json.tmp
+/openapi.json.etag
