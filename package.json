@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "npm run generate:types && tsc",
+    "postbuild": "node -e \"require('fs').chmodSync('dist/cli/main.js', 0o755)\"",
     "fetch:spec": "node scripts/fetch-openapi.js",
     "update:spec": "node scripts/fetch-openapi.js --force && npm run generate:types",
     "generate:types": "npm run fetch:spec && openapi-typescript openapi.json -o src/types/api.ts",
