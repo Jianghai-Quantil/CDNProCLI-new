@@ -44,27 +44,50 @@ CDNPro CLI resolves credentials in this order:
 1. CLI flags: `--host`, `--user`, `--secret-key`
 2. Environment variables: `CDNPRO_HOST`, `CDNPRO_USER`, `CDNPRO_SECRETKEY`
 3. Named profile (via `--profile <name>` or `CDNPRO_PROFILE` env var)
-4. Default saved profile
+4. The saved profile marked `(default)` in `cdnpro auth list`
 
 ### Saving a profile
 
 ```bash
 cdnpro auth login
-# Prompts for host, username, and secret key. Saves as the default profile.
+# Prompts for host, username, and secret key.
+# Saves a profile named "default" and marks it as the default profile.
 
 cdnpro auth login --profile staging
-# Saves a named profile called "staging"
+# Saves or overwrites the profile named "staging".
+# The first profile you save is marked (default). A later named profile is not;
+# the existing default stays until you switch it.
 ```
+
+Running login again for an existing name overwrites that profile's host, username, and secret key. It does not ask for confirmation.
 
 ### Managing profiles
 
+`cdnpro auth list` prints every saved profile. `(default)` marks the default profile. Switching the default keeps the other profiles saved:
+
 ```bash
-cdnpro auth list                   # Show all saved profiles
-cdnpro auth switch staging         # Switch default profile
-cdnpro auth status                 # Show active profile and server info
-cdnpro auth logout                 # Remove the default profile
+cdnpro auth list                   # Show saved profiles; "(default)" marks the default profile
+cdnpro auth switch staging         # Mark "staging" as the default; other profiles stay
+cdnpro auth status                 # Test the default profile
+cdnpro auth status --profile qa1   # Test qa1 without changing the default
+cdnpro auth logout                 # Remove the profile marked (default)
 cdnpro auth logout --profile staging
 ```
+
+`cdnpro auth logout` with no `--profile` removes the profile marked `(default)`, not a profile whose name is `default`. If other profiles remain, one of them is marked `(default)`. `cdnpro auth logout --profile staging` removes only `staging`. The default marker changes only when `staging` was the default profile.
+
+### When `--profile` is omitted
+
+`--profile <name>` selects a saved profile for that one command. It does not change which profile is marked `(default)`.
+
+When `--profile` is omitted, the command chooses a profile in this order:
+
+1. `CDNPRO_PROFILE`, when that environment variable names a saved profile
+2. The profile marked `(default)` in `cdnpro auth list`
+
+`CDNPRO_PROFILE` overrides the `(default)` marker for that command. It does not change the marker.
+
+Saved profiles are not used when explicit credentials are supplied. That is `--host`, `--user`, and `--secret-key` together, or `CDNPRO_HOST`, `CDNPRO_USER`, and `CDNPRO_SECRETKEY` together.
 
 Credentials are stored securely:
 - **Secret key** — stored in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). If the keychain is unavailable (headless server, CI), a one-time warning is shown and the secret falls back to the config file.

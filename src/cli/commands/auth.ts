@@ -69,11 +69,16 @@ export function registerAuthCommands(parent: Command): void {
     .option('-p, --profile <name>', 'Profile to remove (active default profile if omitted)')
     .action(async (opts: { profile?: string }, cmd: Command) => {
       try {
-        // No --profile means the active default (the one marked in `auth list`),
-        // which is not always the profile literally named "default".
-        const activeDefault = getDefaultProfile();
-        const profileName = cmd.optsWithGlobals<GlobalOptions>().profile ?? opts.profile ?? activeDefault;
+        // No --profile means the profile marked (default) in `auth list`.
+        // That stored name can outlive the profile itself, so an empty list
+        // must not be reported as a missing named profile.
+        const requested = cmd.optsWithGlobals<GlobalOptions>().profile ?? opts.profile;
         const profiles = listProfiles();
+        if (!requested && Object.keys(profiles).length === 0) {
+          throw new CliError('CONFIG_ERROR', 'No profiles configured. Run `cdnpro auth login`.');
+        }
+        const activeDefault = getDefaultProfile();
+        const profileName = requested ?? activeDefault;
         if (!profiles[profileName]) {
           throw new CliError('CONFIG_ERROR', `Profile "${profileName}" not found.`);
         }
@@ -85,6 +90,8 @@ export function registerAuthCommands(parent: Command): void {
           if (remaining.length > 0) {
             setDefaultProfile(remaining[0]);
             console.log(chalk.green(`Default profile set to "${remaining[0]}".`));
+          } else {
+            setDefaultProfile('default');
           }
         }
       } catch (err) {
