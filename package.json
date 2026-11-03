@@ -7,6 +7,10 @@
   },
   "main": "./dist/client/CDNProClient.js",
   "types": "./dist/client/CDNProClient.d.ts",
+  "files": [
+    "dist",
+    "openapi.json"
+  ],
   "scripts": {
     "build": "npm run generate:types && tsc",
     "generate:types": "openapi-typescript openapi.json -o src/types/api.ts",

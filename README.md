@@ -30,8 +30,8 @@ cdnpro --version
 ### Install from source
 
 ```bash
-git clone https://github.com/mileweb/CDNProCLI-new.git
-cd CDNProCLI-new
+git clone https://github.com/mileweb/CDNPro-CLI.git
+cd CDNPro-CLI
 npm install
 npm run build
 npm install -g .
@@ -576,7 +576,7 @@ cdnpro completion powershell
 Install as a library in your Node.js/TypeScript project:
 
 ```bash
-npm install /path/to/CDNProCLI-new
+npm install /path/to/CDNPro-CLI
 ```
 
 ```typescript
@@ -659,5 +659,5 @@ npm test
 - [CDN Pro product page](https://www.cdnetworks.com/cdnpro)
 - [CDN Pro documentation](https://docs.cdnetworks.com)
 - [CDN Pro portal](https://console.cdnetworks.com)
-- [Legacy bash CLI](cdn/bash/)
-- [Legacy JavaScript library](cdn/js/)
+- [Legacy bash CLI](https://github.com/mileweb/CDNProSDK/tree/master/cdn/bash) (now in the CDNProSDK repo)
+- [Legacy JavaScript library](https://github.com/mileweb/CDNProSDK/tree/master/cdn/js) (now in the CDNProSDK repo)
