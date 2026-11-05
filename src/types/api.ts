@@ -827,7 +827,7 @@ export interface paths {
         put?: never;
         /**
          * Create a portal user account
-         * @description Create a CDN Pro portal user account. The loginName field must be unique. If you delete a user, you cannot reuse the old loginName.
+         * @description Create a CDN Pro portal user account. The loginName field must be unique (the comparison is case insensitive) and cannot contain leading or trailing whitespace. If you delete a user, you cannot reuse the old loginName.
          */
         post: operations["createContact"];
         delete?: never;
@@ -1099,6 +1099,26 @@ export interface paths {
          * @description Get details about an API call including its response status, request and response headers, and caller's IP address.
          */
         get: operations["get-ngadmin-apicalls-id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ngadmin/apicalls/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count API calls
+         * @description Returns a count of API call records made by the calling customer. Supports optional filtering by time window, request path prefix, and whether to include calls made on behalf of the caller.
+         */
+        get: operations["countApiCalls"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2319,10 +2339,7 @@ export interface operations {
                             followClientIpVersion: "auto" | "strict" | "off";
                             /** @description Refer to the [Edge Logic Introduction](</docs/edge-logic/intro>) to learn how to use the NGINX language to further customize CDN Pro to meet your business requirements. */
                             edgeLogic: string;
-                            /**
-                             * @description The value must be set to 1 at this time.
-                             * @default 1
-                             */
+                            /** @description The value must be set to 1 at this time. */
                             syntaxVersion: number;
                             /** @description The cachekey hostname must be a string made of lowercase letters, digits, dot, dash, and underscore. If not specified, the incoming Host header value will be used and the cache will not be shared across different hostnames in this property. */
                             cacheKeyHostname?: string;
@@ -2807,10 +2824,7 @@ export interface operations {
                     followClientIpVersion?: "auto" | "strict" | "off";
                     /** @description Refer to the [Edge Logic Introduction](</docs/edge-logic/intro>) to learn how to use the NGINX language to further customize CDN Pro to meet your business requirements. */
                     edgeLogic: string;
-                    /**
-                     * @description The value must be set to 1 at this time.
-                     * @default 1
-                     */
+                    /** @description The value must be set to 1 at this time. */
                     syntaxVersion: number;
                     /** @description The cachekey hostname must be a string made of lowercase letters, digits, dot, dash, and underscore. If not specified, the incoming Host header value will be used and the cache will not be shared across different hostnames in this property. */
                     cacheKeyHostname?: string;
@@ -3270,7 +3284,7 @@ export interface operations {
                              * @description Indicates the action taken.
                              * @enum {string}
                              */
-                            operation: "creation" | "update";
+                            operation: "creation" | "update" | "deletion";
                             /**
                              * Format: date-time
                              * @description RFC 3339 format date of the event.
@@ -4173,10 +4187,7 @@ export interface operations {
                     followClientIpVersion?: "auto" | "strict" | "off";
                     /** @description Refer to the [Edge Logic Introduction](</docs/edge-logic/intro>) to learn how to use the NGINX language to further customize CDN Pro to meet your business requirements. */
                     edgeLogic: string;
-                    /**
-                     * @description The value must be set to 1 at this time.
-                     * @default 1
-                     */
+                    /** @description The value must be set to 1 at this time. */
                     syntaxVersion: number;
                     /** @description The cachekey hostname must be a string made of lowercase letters, digits, dot, dash, and underscore. If not specified, the incoming Host header value will be used and the cache will not be shared across different hostnames in this property. */
                     cacheKeyHostname?: string;
@@ -4740,10 +4751,7 @@ export interface operations {
                         followClientIpVersion?: "auto" | "strict" | "off";
                         /** @description Refer to the [Edge Logic Introduction](</docs/edge-logic/intro>) to learn how to use the NGINX language to further customize CDN Pro to meet your business requirements. */
                         edgeLogic: string;
-                        /**
-                         * @description The value must be set to 1 at this time.
-                         * @default 1
-                         */
+                        /** @description The value must be set to 1 at this time. */
                         syntaxVersion: number;
                         /** @description The cachekey hostname must be a string made of lowercase letters, digits, dot, dash, and underscore. If not specified, the incoming Host header value will be used and the cache will not be shared across different hostnames in this property. */
                         cacheKeyHostname?: string;
@@ -8467,7 +8475,7 @@ export interface operations {
                     firstName: string;
                     /** @description Last name of the user. */
                     lastName: string;
-                    /** @description Name used to log in to the portal. */
+                    /** @description Name used to log in to the portal. It can be up to 60 characters long and cannot contain leading or trailing whitespace. */
                     loginName: string;
                     /**
                      * Format: email
@@ -8518,7 +8526,7 @@ export interface operations {
                          * @default false
                          */
                         isMaster?: boolean;
-                        /** @description List of products that the user has access to. The default is no products. You can specify "CDN" to represent CDN Pro, and "HDT" for High-Speed Data Transmission. */
+                        /** @description List of products that the user has access to. The default is no products. You can specify "CDN" to represent CDN Pro, and "HDT" for High-Speed Data Transmission. This field is ignored for master contacts, as a master contact has access to all subscribed products. */
                         products?: ("CDN" | "HDT")[];
                         /**
                          * @description This setting applies to resellers only. It indicates whether the user can impersonate child customers. A value of "all" means the user can impersonate all child customers. A value of "none" means the user cannot impersonate any. This field works with the <i>impersonateExceptions</i> field.
@@ -9050,7 +9058,7 @@ export interface operations {
                              * @default false
                              */
                             isMaster: boolean;
-                            /** @description List of products that the user has access to. The default is no products. You can specify "CDN" to represent CDN Pro, and "HDT" for High-Speed Data Transmission. */
+                            /** @description List of products that the user has access to. The default is no products. You can specify "CDN" to represent CDN Pro, and "HDT" for High-Speed Data Transmission. This field is ignored for master contacts, as a master contact has access to all subscribed products. */
                             products?: ("CDN" | "HDT")[];
                             /**
                              * @description This setting applies to resellers only. It indicates whether the user can impersonate child customers. A value of "all" means the user can impersonate all child customers. A value of "none" means the user cannot impersonate any. This field works with the <i>impersonateExceptions</i> field.
@@ -9169,7 +9177,7 @@ export interface operations {
                     firstName?: string;
                     /** @description Last name of the user. */
                     lastName?: string;
-                    /** @description Name used to log in to the portal. */
+                    /** @description Name used to log in to the portal. It can be up to 60 characters long and cannot contain leading or trailing whitespace. */
                     loginName?: string;
                     /** @description Email address of the user. */
                     emailAddress?: string;
@@ -9214,7 +9222,7 @@ export interface operations {
                          * @default false
                          */
                         isMaster?: boolean;
-                        /** @description List of products that the user has access to. The default is no products. You can specify "CDN" to represent CDN Pro, and "HDT" for High-Speed Data Transmission. */
+                        /** @description List of products that the user has access to. The default is no products. You can specify "CDN" to represent CDN Pro, and "HDT" for High-Speed Data Transmission. This field is ignored for master contacts, as a master contact has access to all subscribed products. */
                         products?: ("CDN" | "HDT")[];
                         /**
                          * @description This setting applies to resellers only. It indicates whether the user can impersonate child customers. A value of "all" means the user can impersonate all child customers. A value of "none" means the user cannot impersonate any. This field works with the <i>impersonateExceptions</i> field.
@@ -9573,7 +9581,7 @@ export interface operations {
                             country?: string;
                         };
                         /**
-                         * customerConfigs
+                         * customerConfigsUpdatable
                          * @description This object contains various limits and settings for a customer.  Customers cannot modify their own settings. Resellers can modify them for their child customers. Resellers can only specify products they have already purchased. If you have special requirements for your account, please contact our support team.
                          * @example {
                          *       "apiRate": 64,
@@ -9581,6 +9589,9 @@ export interface operations {
                          *       "type": "regular",
                          *       "products": [
                          *         "CDN"
+                         *       ],
+                         *       "historicalProducts": [
+                         *         "HDT"
                          *       ],
                          *       "status": "suspended",
                          *       "description": "string",
@@ -9608,6 +9619,8 @@ export interface operations {
                             type: "regular" | "reseller";
                             /** @description Products enabled for the customer. "CDN" representing CDN Pro, and "HDT" representing High-Speed Data Transmission are supported. */
                             products?: ("CDN" | "HDT")[];
+                            /** @description Products the customer was subscribed to previously but no longer has access to. This field is for record-keeping and does not grant access to the products. Only resellers can update this field for their child customers. It is not supported when creating a customer. */
+                            historicalProducts?: ("CDN" | "HDT")[];
                             /**
                              * @description Account status. If the status is <i>suspended</i> API calls will fail with status code 403 indicating they are forbidden. Portal logins will also fail.  Child customers of a suspended reseller are <b>not</b> automatically suspended though.
                              * @default suspended
@@ -9861,7 +9874,7 @@ export interface operations {
                         ipWhiteList?: string[];
                     };
                     /**
-                     * customerConfigs
+                     * customerConfigsUpdatable
                      * @description This object contains various limits and settings for a customer.  Customers cannot modify their own settings. Resellers can modify them for their child customers. Resellers can only specify products they have already purchased. If you have special requirements for your account, please contact our support team.
                      * @example {
                      *       "apiRate": 64,
@@ -9869,6 +9882,9 @@ export interface operations {
                      *       "type": "regular",
                      *       "products": [
                      *         "CDN"
+                     *       ],
+                     *       "historicalProducts": [
+                     *         "HDT"
                      *       ],
                      *       "status": "suspended",
                      *       "description": "string",
@@ -9896,6 +9912,8 @@ export interface operations {
                         type?: "regular" | "reseller";
                         /** @description Products enabled for the customer. "CDN" representing CDN Pro, and "HDT" representing High-Speed Data Transmission are supported. */
                         products?: ("CDN" | "HDT")[];
+                        /** @description Products the customer was subscribed to previously but no longer has access to. This field is for record-keeping and does not grant access to the products. Only resellers can update this field for their child customers. It is not supported when creating a customer. */
+                        historicalProducts?: ("CDN" | "HDT")[];
                         /**
                          * @description Account status. If the status is <i>suspended</i> API calls will fail with status code 403 indicating they are forbidden. Portal logins will also fail.  Child customers of a suspended reseller are <b>not</b> automatically suspended though.
                          * @default suspended
@@ -10021,7 +10039,7 @@ export interface operations {
                             country?: string;
                         };
                         /**
-                         * customerConfigs
+                         * customerConfigsUpdatable
                          * @description This object contains various limits and settings for a customer.  Customers cannot modify their own settings. Resellers can modify them for their child customers. Resellers can only specify products they have already purchased. If you have special requirements for your account, please contact our support team.
                          * @example {
                          *       "apiRate": 64,
@@ -10029,6 +10047,9 @@ export interface operations {
                          *       "type": "regular",
                          *       "products": [
                          *         "CDN"
+                         *       ],
+                         *       "historicalProducts": [
+                         *         "HDT"
                          *       ],
                          *       "status": "suspended",
                          *       "description": "string",
@@ -10056,6 +10077,8 @@ export interface operations {
                             type: "regular" | "reseller";
                             /** @description Products enabled for the customer. "CDN" representing CDN Pro, and "HDT" representing High-Speed Data Transmission are supported. */
                             products?: ("CDN" | "HDT")[];
+                            /** @description Products the customer was subscribed to previously but no longer has access to. This field is for record-keeping and does not grant access to the products. Only resellers can update this field for their child customers. It is not supported when creating a customer. */
+                            historicalProducts?: ("CDN" | "HDT")[];
                             /**
                              * @description Account status. If the status is <i>suspended</i> API calls will fail with status code 403 indicating they are forbidden. Portal logins will also fail.  Child customers of a suspended reseller are <b>not</b> automatically suspended though.
                              * @default suspended
@@ -10232,6 +10255,8 @@ export interface operations {
                 status?: "active" | "suspended";
                 /** @description Comma-separated list of products which can include 'CDN' representing CDN Pro and 'HDT' representing High-Speed Data Transmission'. Only customers with access to the specified products will be returned. */
                 products?: string;
+                /** @description This parameter is processed only when <i>products</i> is also specified. If true, a customer is considered a match when a specified product is in either the customer's <i>configs.products</i> or <i>configs.historicalProducts</i> list. If false or omitted, only <i>configs.products</i> is checked. */
+                checkHistoryProduct?: boolean;
                 /** @description Sort accounts by their creation time or when they were last updated. */
                 sortBy?: "creationTime" | "lastUpdateTime";
                 /** @description Order of customers returned by the API, either <i>asc</i> for ascending or <i>desc</i> for descending. */
@@ -10897,7 +10922,7 @@ export interface operations {
                         responseTimestamp: string;
                         /** @description HTTP response status code for the API call. */
                         responseCode: number;
-                        /** @description The API response body will be included to help with investigation of failed API calls if responseCode is in the 4xx or 5xx range. */
+                        /** @description The response body returned by the API call, truncated to the first 1000 bytes. */
                         responseBody?: string;
                     };
                     "application/xml": {
@@ -10911,6 +10936,94 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": {
+                        code?: string;
+                        message?: string;
+                    };
+                };
+            };
+        };
+    };
+    countApiCalls: {
+        parameters: {
+            query?: {
+                /** @description Start of the query time window, as an RFC 3339 UTC datetime (e.g. `2019-03-01T10:00:00Z`). When omitted together with `enddate`, the window defaults to the last 24 hours. */
+                startdate?: string;
+                /** @description End of the query time window, as an RFC 3339 UTC datetime (e.g. `2019-03-31T10:00:00Z`). When omitted together with `startdate`, the window defaults to the last 24 hours. */
+                enddate?: string;
+                /** @description Filter to API calls whose request path starts with this prefix. Case-insensitive; normalized to lowercase with a leading `/`. Must start with one of: `/cdn/`, `/ngadmin/`, `/hdt/`. A 400 error is returned for disallowed prefixes. */
+                path?: string;
+                /** @description Scope toggle. `true` — only count calls made directly by the calling customer. `false` — also include calls made on behalf of the calling customer. */
+                by_me_only?: boolean;
+            };
+            header?: {
+                /** @description If you are a reseller, you can use this header to specify the ID of a child customer. */
+                "On-Behalf-Of"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A named data series containing the count of matching API calls. Currently returns a single data point timestamped at `startdate`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "dataName": "api calls",
+                     *       "dataUnit": "counts",
+                     *       "dataSeries": [
+                     *         {
+                     *           "timestamp": "2019-03-01T10:00:00Z",
+                     *           "data": 1234
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        /**
+                         * @description Human-readable name of the data series.
+                         * @example api calls
+                         */
+                        dataName: string;
+                        /**
+                         * @description Unit of measurement for `data` values.
+                         * @example counts
+                         */
+                        dataUnit: string;
+                        dataSeries: {
+                            /**
+                             * Format: date-time
+                             * @description RFC 3339 UTC timestamp. For the counts endpoint this is always the `startdate` (start of the query window).
+                             * @example 2019-03-01T10:00:00Z
+                             */
+                            timestamp: string;
+                            /**
+                             * Format: int64
+                             * @description The count of API calls matching the query.
+                             * @example 1234
+                             */
+                            data: number;
+                        }[];
+                    };
+                };
+            };
+            /** @description Bad Request — invalid date format, invalid path prefix, or missing/invalid parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "INVALID_PATH_PREFIX",
+                     *       "status": 400,
+                     *       "message": "Path prefix must start with one of: /cdn/, /cdnapi/, /report/, /ngrole/, /ngadmin/, /hdt/, /ngscheduler/"
+                     *     }
+                     */
                     "application/json": {
                         code?: string;
                         message?: string;
@@ -15837,9 +15950,9 @@ export interface operations {
             query?: {
                 /** @description The value of the search parameter is matched on the shields' name, id, regions, ipV4 , and ipV6 fields. Only those shields that match will be returned in the response. */
                 search?: string;
-                /** @description Returns shields sorted by when they were last updated or when they became active. */
-                sortBy?: "lastUpdated" | "effectiveDate";
-                /** @description Returns shields in sorted order, either "asc" for ascending or "desc" for descending. The default is to return the last shield updated first. */
+                /** @description Returns shields sorted by their ID, when they were last updated, or when they became active. */
+                sortBy?: "id" | "lastUpdated" | "effectiveDate";
+                /** @description Returns shields in sorted order, either "asc" for ascending or "desc" for descending. The default is to return shields sorted by ID in ascending order. */
                 sortOrder?: "asc" | "desc";
                 /** @description Filter results based on whether shields are used in properties deployed to staging or production. If unspecified, all available shields are returned. */
                 usedInProperties?: "false" | "true";

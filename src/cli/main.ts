@@ -55,15 +55,15 @@ program
     if (actionCmd.optsWithGlobals().noColor) {
       chalk.level = 0;
     }
+    // Only real commands trigger the (cached, detached) update check —
+    // not --version / --help, which exit before any action runs.
+    scheduleUpdateCheck();
   })
   .hook('postAction', () => {
     // Print a one-line update notice to stderr after the command completes
     // (only in interactive sessions; no-op when stdout is piped).
     printUpdateNotice();
   });
-
-// Kick off a background version check (fires-and-forgets, non-blocking).
-scheduleUpdateCheck();
 
 // Register command groups
 registerAuthCommands(program);

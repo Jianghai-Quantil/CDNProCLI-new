@@ -30,10 +30,10 @@ cdnpro --version
 ### Install from source
 
 ```bash
-git clone https://github.com/mileweb/CDNProCLI-new.git
-cd CDNProCLI-new
+git clone https://github.com/mileweb/CDNPro-CLI.git
+cd CDNPro-CLI
 npm install
-npm run build
+npm run build   # downloads openapi.json on first run, so network access is required
 npm install -g .
 ```
 
@@ -44,27 +44,50 @@ CDNPro CLI resolves credentials in this order:
 1. CLI flags: `--host`, `--user`, `--secret-key`
 2. Environment variables: `CDNPRO_HOST`, `CDNPRO_USER`, `CDNPRO_SECRETKEY`
 3. Named profile (via `--profile <name>` or `CDNPRO_PROFILE` env var)
-4. Default saved profile
+4. The saved profile marked `(default)` in `cdnpro auth list`
 
 ### Saving a profile
 
 ```bash
 cdnpro auth login
-# Prompts for host, username, and secret key. Saves as the default profile.
+# Prompts for host, username, and secret key.
+# Saves a profile named "default" and marks it as the default profile.
 
 cdnpro auth login --profile staging
-# Saves a named profile called "staging"
+# Saves or overwrites the profile named "staging".
+# The first profile you save is marked (default). A later named profile is not;
+# the existing default stays until you switch it.
 ```
+
+Running login again for an existing name overwrites that profile's host, username, and secret key. It does not ask for confirmation.
 
 ### Managing profiles
 
+`cdnpro auth list` prints every saved profile. `(default)` marks the default profile. Switching the default keeps the other profiles saved:
+
 ```bash
-cdnpro auth list                   # Show all saved profiles
-cdnpro auth switch staging         # Switch default profile
-cdnpro auth status                 # Show active profile and server info
-cdnpro auth logout                 # Remove the default profile
+cdnpro auth list                   # Show saved profiles; "(default)" marks the default profile
+cdnpro auth switch staging         # Mark "staging" as the default; other profiles stay
+cdnpro auth status                 # Test the default profile
+cdnpro auth status --profile qa1   # Test qa1 without changing the default
+cdnpro auth logout                 # Remove the profile marked (default)
 cdnpro auth logout --profile staging
 ```
+
+`cdnpro auth logout` with no `--profile` removes the profile marked `(default)`, not a profile whose name is `default`. If other profiles remain, one of them is marked `(default)`. `cdnpro auth logout --profile staging` removes only `staging`. The default marker changes only when `staging` was the default profile.
+
+### When `--profile` is omitted
+
+`--profile <name>` selects a saved profile for that one command. It does not change which profile is marked `(default)`.
+
+When `--profile` is omitted, the command chooses a profile in this order:
+
+1. `CDNPRO_PROFILE`, when that environment variable names a saved profile
+2. The profile marked `(default)` in `cdnpro auth list`
+
+`CDNPRO_PROFILE` overrides the `(default)` marker for that command. It does not change the marker.
+
+Saved profiles are not used when explicit credentials are supplied. That is `--host`, `--user`, and `--secret-key` together, or `CDNPRO_HOST`, `CDNPRO_USER`, and `CDNPRO_SECRETKEY` together.
 
 Credentials are stored securely:
 - **Secret key** — stored in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). If the keychain is unavailable (headless server, CI), a one-time warning is shown and the secret falls back to the config file.
@@ -576,7 +599,7 @@ cdnpro completion powershell
 Install as a library in your Node.js/TypeScript project:
 
 ```bash
-npm install /path/to/CDNProCLI-new
+npm install /path/to/CDNPro-CLI
 ```
 
 ```typescript
@@ -609,7 +632,7 @@ while (result.status !== 'succeeded' && result.status !== 'failed') {
 
 ## OpenAPI Spec (`openapi.json`)
 
-`openapi.json` (root of the repo) is the **single source of truth** for the CDN Pro API contract. It drives several layers of the CLI:
+The CDN Pro API contract lives in the [docs-content-cdn](https://github.com/mileweb/docs-content-cdn/blob/master/en/apispec/openapi.json) repo (`en/apispec/openapi.json`, `master` branch). It is **not committed to this repo**: `scripts/fetch-openapi.js` downloads it to `openapi.json` in the repo root (git-ignored) and saves the server's ETag next to it (`openapi.json.etag`, also git-ignored). On later builds it sends that ETag back, so the file is only re-downloaded when it has changed upstream. It drives several layers of the CLI:
 
 | Consumer | How | Where |
 |---|---|---|
@@ -618,18 +641,35 @@ while (result.status !== 'succeeded' && result.status !== 'failed') {
 | **Example body synthesis** | `src/schema/synthesize.ts` walks the spec to produce a filled-in request body for `--example` flags | All create/update commands |
 | **Schema introspection** | `src/cli/commands/schema.ts` reads the spec directly to show request/response details for `cdnpro schema <resource> <operation>` | `cdnpro schema` command |
 | **CLI flag → API parameter mapping** | Each command file exports an `OptionMapping[]` array that maps CLI flags to their API targets (query params, headers, body properties). `registerMappings()` stores this for schema introspection; `registerOptionsFromMapping()` registers Commander options from the same source. | `src/cli/option-map.ts` + every command file |
-| **Bundled artifact** | The spec is imported by `loader.ts`, so `tsc` embeds it inside `dist/` — no separate file copy needed | `npm run build` |
+| **Packaged artifact** | `dist/` loads the spec at runtime with `require('../../openapi.json')` (it is **not** embedded in `dist/`), so the downloaded file must sit at the package root. `package.json` `files` lists it, so it ships in the published package | `npm pack` / `npm publish` |
 
 The spec is loaded once and cached in memory the first time any schema function is called; subsequent calls within the same process reuse the cached object.
 
-### After updating `openapi.json`
+### Getting and refreshing the spec
 
-**End users:** run `cdnpro update`. The published package already includes regenerated types and a prebuilt `dist/`; no manual steps are needed.
+| Command | What it does |
+|---|---|
+| `npm run build` / `npm run dev` | Fetches the spec if it is missing or changed upstream (conditional request using the saved ETag), then builds. Needs network access the first time. |
+| `npm run fetch:spec` | Just the fetch step. |
+| `npm run update:spec` | Forces an unconditional re-download (ignores the saved ETag), then regenerates `src/types/api.ts`. |
+
+- An unchanged spec costs one small request that returns `304 Not Modified`; nothing is downloaded or rewritten. The saved ETag is ignored if it was recorded for a different URL or if `openapi.json` is missing.
+- **Failover:** the spec is fetched from `raw.githubusercontent.com` first. If that is unreachable, times out (10 s when you already have a copy, 30 s otherwise), returns an error, or returns something that is not an OpenAPI document (e.g. a captive-portal page), the script fails over to the GitHub contents API (`api.github.com`), which serves the same file and also supports ETags (its ETag is the file's git blob SHA). Each source has its own ETag, so a saved ETag is only sent to the source that issued it, and the source that produced your current file is tried first (a known-unreachable primary doesn't slow every build). The log line says which source was used.
+  - The `github.com/.../blob/...` page is deliberately **not** used as a source: it has an ETag, but for the HTML page rather than the file, and it contains no file body (the spec is too large for GitHub to render).
+  - Unauthenticated, the API allows 60 requests/hour per IP (304 responses count too). Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise that; it is sent to `api.github.com` only, and is retried without the token if GitHub rejects it with 401.
+- If the check or download fails and `openapi.json` already exists, the existing copy is kept (with a warning), so offline builds still work. If it does not exist, the build stops with an error.
+- `npm pack` / `npm publish` run a `prepack` hook that fetches the spec first, so the package always contains a current `openapi.json`. If the spec is missing and cannot be downloaded, packing aborts instead of producing a broken package. (`prepack` does not run `npm run build`; build before publishing so `dist/` is up to date.)
+- The source follows the `master` branch, so every build picks up the latest published spec. To use a different location, set `OPENAPI_SPEC_URL` (a `github.com/.../blob/...` page URL is accepted and converted to the raw URL automatically).
+- `src/types/api.ts` is still committed and is regenerated on every build, so it will show up as modified after a build that picked up a newer spec.
+
+### After the spec changes
+
+**End users:** run `cdnpro update`. The published package already includes the spec, regenerated types and a prebuilt `dist/`; no manual steps are needed.
 
 **Contributors** working on the source must do the following before publishing a new release:
 
-1. **Regenerate types** — run `npm run generate:types` to overwrite `src/types/api.ts`. Never edit that file by hand; it will be overwritten.
-2. **Rebuild** — run `npm run build` so the updated spec is compiled into `dist/`.
+1. **Refresh the spec and regenerate types** — run `npm run update:spec`. This re-downloads `openapi.json` and overwrites `src/types/api.ts`. Never edit that file by hand; it will be overwritten.
+2. **Rebuild** — run `npm run build` so `dist/` is compiled against the updated spec.
 3. **Update `OPERATION_MAP`** if you added or removed endpoints — open `src/schema/query.ts` and add/remove entries so the new operations are reachable via `cdnpro schema` and `--example`.
 4. **Add `OptionMapping[]`** for any new command — each command file exports its CLI flags as an `OptionMapping[]` array and calls `registerMappings()` so `cdnpro schema` can annotate parameters with `cliFlag` and `bodyCliFlags`. Use shared presets (`PAGINATION_OPTIONS`, `SORT_OPTIONS`, `FILE_EXAMPLE`, `CONFIRM`, etc.) from `src/cli/option-map.ts`.
 5. **Run tests** — run `npm test` to catch any type errors or broken validations introduced by the spec change.
@@ -644,8 +684,8 @@ npm install
 npm run dev -- auth status
 npm run dev -- property list
 
-# Generate TypeScript types from openapi.json
-npm run generate:types
+# Re-download openapi.json and regenerate TypeScript types
+npm run update:spec
 
 # Build
 npm run build
@@ -659,5 +699,5 @@ npm test
 - [CDN Pro product page](https://www.cdnetworks.com/cdnpro)
 - [CDN Pro documentation](https://docs.cdnetworks.com)
 - [CDN Pro portal](https://console.cdnetworks.com)
-- [Legacy bash CLI](cdn/bash/)
-- [Legacy JavaScript library](cdn/js/)
+- [Legacy bash CLI](https://github.com/mileweb/CDNProSDK/tree/master/cdn/bash) (now in the CDNProSDK repo)
+- [Legacy JavaScript library](https://github.com/mileweb/CDNProSDK/tree/master/cdn/js) (now in the CDNProSDK repo)

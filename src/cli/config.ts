@@ -137,11 +137,30 @@ export function setDefaultProfile(name: string): void {
 }
 
 /**
+ * readline and raw-mode keypress capture leave stdin referenced. An interactive
+ * terminal — Git Bash included — never sends EOF, so the process stays running
+ * after the answers are in and later keystrokes never reach the shell.
+ * resume() does not undo unref(), so each new prompt must ref() again.
+ */
+function releaseStdin(): void {
+  const stdin = process.stdin as NodeJS.ReadStream;
+  if (typeof stdin.setRawMode === 'function' && stdin.isRaw) {
+    stdin.setRawMode(false);
+  }
+  stdin.pause();
+  stdin.unref();
+}
+
+/**
  * Prompt for input.
  * - silent=true  : mask typed characters with '*' (for secret keys)
  * - defaultValue : shown as [default] in the prompt; returned when the user presses Enter with no input
  */
 export function promptInput(question: string, silent = false, defaultValue?: string): Promise<string> {
+  const stdin = process.stdin as NodeJS.ReadStream;
+  stdin.ref();
+  stdin.resume();
+
   const displayQuestion = defaultValue
     ? `${question} [${defaultValue}]: `
     : `${question}: `;
@@ -150,23 +169,20 @@ export function promptInput(question: string, silent = false, defaultValue?: str
     if (silent) {
       process.stdout.write(displayQuestion);
 
-      const isTTY = (process.stdin as NodeJS.ReadStream).isTTY;
+      const isTTY = stdin.isTTY;
 
       if (isTTY) {
         // TTY mode: intercept keypresses and echo '*' for each character typed.
-        // Resume stdin in case a prior readline.createInterface call paused it.
-        process.stdin.resume();
-        readline.emitKeypressEvents(process.stdin);
-        (process.stdin as NodeJS.ReadStream).setRawMode!(true);
+        readline.emitKeypressEvents(stdin);
+        stdin.setRawMode!(true);
 
         let answer = '';
 
         const onKeypress = (_char: string, key: readline.Key) => {
           if (key.name === 'return' || key.name === 'enter') {
-            (process.stdin as NodeJS.ReadStream).setRawMode!(false);
-            process.stdin.removeListener('keypress', onKeypress);
-            process.stdin.pause();
+            stdin.removeListener('keypress', onKeypress);
             process.stdout.write('\n');
+            releaseStdin();
             resolve(answer);
           } else if (key.name === 'backspace') {
             if (answer.length > 0) {
@@ -174,7 +190,9 @@ export function promptInput(question: string, silent = false, defaultValue?: str
               process.stdout.write('\b \b');
             }
           } else if (key.ctrl && key.name === 'c') {
-            (process.stdin as NodeJS.ReadStream).setRawMode!(false);
+            if (typeof stdin.setRawMode === 'function' && stdin.isRaw) {
+              stdin.setRawMode(false);
+            }
             process.exit(0);
           } else if (key.sequence && !key.ctrl && !key.meta && key.sequence.length === 1) {
             answer += key.sequence;
@@ -182,23 +200,26 @@ export function promptInput(question: string, silent = false, defaultValue?: str
           }
         };
 
-        process.stdin.on('keypress', onKeypress);
+        stdin.on('keypress', onKeypress);
       } else {
-        // Non-TTY (piped input): read silently without echo.
-        const rl = readline.createInterface({ input: process.stdin, terminal: false });
+        // Non-TTY (piped input, or Git Bash when Node does not see a console):
+        // read silently without echo.
+        const rl = readline.createInterface({ input: stdin, terminal: false });
         rl.once('line', (line) => {
           process.stdout.write('\n');
           rl.close();
+          releaseStdin();
           resolve(line);
         });
       }
     } else {
       const rl = readline.createInterface({
-        input: process.stdin,
+        input: stdin,
         output: process.stdout,
       });
       rl.question(displayQuestion, (answer) => {
         rl.close();
+        releaseStdin();
         resolve(answer.trim() ? answer : (defaultValue ?? answer));
       });
     }

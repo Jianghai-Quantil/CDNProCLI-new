@@ -1,4 +1,4 @@
-# CDNProCLI Rebuild: Implementation Plan
+# CDNPro-CLI Rebuild: Implementation Plan
 
 > Generated: 2026-06-15  
 > Scope: Rebuild the CLI tool to serve both human operators and AI agents.  
@@ -18,7 +18,7 @@
 ## Target Repository Layout
 
 ```
-CDNProCLI/
+CDNPro-CLI/
 ├── src/
 │   ├── client/                        # Migrated from cdn/js/ (TypeScript)
 │   │   ├── ApiCore.ts
@@ -107,7 +107,6 @@ CDNProCLI/
 │   └── types/
 │       └── api.ts                     # Generated — do not edit by hand
 ├── dist/                              # Compiled output (gitignored)
-├── cdn/                               # Original bash + JS code (kept for backward compat)
 ├── openapi.json
 ├── package.json
 ├── tsconfig.json
